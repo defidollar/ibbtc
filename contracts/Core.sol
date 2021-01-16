@@ -44,10 +44,17 @@ contract Core is GovernableProxy, Initializable {
     * @notice Mint bBTC
     * @dev Only whitelisted peaks can call this function
     * @param btc BTC amount supplied
+    * @return _bBtc Badger BTC that was minted
     */
     function mint(uint btc) external returns(uint) {
         require(peaks[msg.sender].state == PeakState.Active, "PEAK_INACTIVE");
-        uint _bBtc = btc.mul(bBtc.totalSupply()).div(totalSystemAssets());
+        uint _totalSupply = bBtc.totalSupply();
+        uint _bBtc;
+        if (_totalSupply > 0) {
+            _bBtc = btc.mul(_totalSupply).div(totalSystemAssets());
+        } else {
+            _bBtc = btc;
+        }
         bBtc.mint(msg.sender, _bBtc);
         return _bBtc;
     }
@@ -56,11 +63,13 @@ contract Core is GovernableProxy, Initializable {
     * @notice Redeem bBTC
     * @dev Only whitelisted peaks can call this function
     * @param _bBtc bBTC amount to redeem
+    * @return btc that user should receive
     */
     function redeem(uint _bBtc) external returns(uint) {
         require(peaks[msg.sender].state != PeakState.Extinct, "PEAK_EXTINCT");
+        uint btc = _bBtc.mul(totalSystemAssets()).div(bBtc.totalSupply());
         bBtc.burn(msg.sender, _bBtc);
-        return _bBtc.mul(totalSystemAssets()).div(bBtc.totalSupply());
+        return btc;
     }
 
 
@@ -85,7 +94,10 @@ contract Core is GovernableProxy, Initializable {
     * @notice Whitelist a new peak
     * @param peak Address of the contract that interfaces with the 3rd-party protocol
     */
-    function whitelistPeak(address peak) external onlyOwner {
+    function whitelistPeak(address peak)
+        external
+        onlyOwner
+    {
         require(
             peaks[peak].state == PeakState.Extinct,
             "Peak already exists"

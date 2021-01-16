@@ -3,4 +3,5 @@
 ### Development
 ```
 npm run compile
+npm t
 ```

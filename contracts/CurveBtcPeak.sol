@@ -12,6 +12,8 @@ import {IPeak} from "./interfaces/IPeak.sol";
 import {Initializable} from "./common/Initializable.sol";
 import {GovernableProxy} from "./common/GovernableProxy.sol";
 
+import "hardhat/console.sol";
+
 contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
     using SafeERC20 for IERC20;
     using SafeERC20 for ISett;
@@ -40,12 +42,14 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
 
     event Mint(address account, uint amount);
     event Redeem(address account, uint amount);
+    event PoolWhitelisted(address lpToken, address swap, address sett);
 
-    function initialize(ICore _core)
+    function initialize(ICore _core, IERC20 _bBtc)
         public
         notInitialized
     {
         core = _core;
+        bBtc = _bBtc;
         _setParams(
             1000, // 1000 / PRECISION implies to keep 10% of curve LP token in the contract
             9990, // 9990 / PRECISION implies a mint fee of 0.1%
@@ -163,6 +167,14 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
     }
 
     /* ##### Admin ##### */
+
+    function whitelistCurvePool(address lpToken, address swap, address sett)
+        external
+        onlyOwner
+    {
+        pools[numPools++] = CurvePool(IERC20(lpToken), ISwap(swap), ISett(sett));
+        emit PoolWhitelisted(lpToken, swap, sett);
+    }
 
     function setParams(uint _min, uint _mintFeeFactor, uint _redeemFeeFactor)
         external
