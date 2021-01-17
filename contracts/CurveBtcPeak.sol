@@ -12,7 +12,7 @@ import {IPeak} from "./interfaces/IPeak.sol";
 import {Initializable} from "./common/Initializable.sol";
 import {GovernableProxy} from "./common/GovernableProxy.sol";
 
-import "hardhat/console.sol";
+import "hardhat/console.sol"; // @todo remove
 
 contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
     using SafeERC20 for IERC20;
@@ -57,37 +57,31 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
         );
     }
 
-    function mintWithCurveLP(uint poolId, uint inAmount) external returns(uint) {
+    function mintWithCurveLP(uint poolId, uint inAmount) external returns(uint outAmount) {
         CurvePool memory pool = pools[poolId];
         require(
             address(pool.lpToken) != address(0),
             "Curve LP Token not supported"
         );
+        outAmount = _mint(inAmount.mul(pool.swap.get_virtual_price()).div(1e18));
         pool.lpToken.safeTransferFrom(msg.sender, address(this), inAmount);
-        // best effort at keeping min.div(PRECISION) funds here
-        uint farm = toFarm(pool);
-        if (farm > 0) {
-            pool.lpToken.safeApprove(address(pool.sett), farm);
-            pool.sett.deposit(farm);
-        }
-        return _mint(inAmount.mul(pool.swap.get_virtual_price()).div(1e18));
+        _balanceFunds(pool);
     }
 
-    function mintWithSettLP(uint poolId, uint inAmount) external returns(uint) {
+    function mintWithSettLP(uint poolId, uint inAmount) external returns(uint outAmount) {
         CurvePool memory pool = pools[poolId];
+        outAmount = _mint(inAmount.mul(settToBtc(pool.swap, pool.sett)).div(1e18));
         // will revert if user passed an unsupported poolId
         pool.sett.safeTransferFrom(msg.sender, address(this), inAmount);
-        return _mint(inAmount.mul(settToBtc(pool.swap, pool.sett)).div(1e18));
     }
 
-    function _mint(uint btc) internal returns(uint) {
-        uint _bBtc = core.mint(btc).mul(mintFeeFactor).div(PRECISION);
-        bBtc.safeTransfer(msg.sender, _bBtc);
-        emit Mint(msg.sender, _bBtc);
-        return _bBtc;
+    function _mint(uint btc) internal returns(uint outAmount) {
+        outAmount = core.mint(btc).mul(mintFeeFactor).div(PRECISION);
+        bBtc.safeTransfer(msg.sender, outAmount);
+        emit Mint(msg.sender, outAmount);
     }
 
-    function redeemInSettLP(uint _bBtc, uint poolId, uint minOut) external returns (uint) {
+    function redeemInSettLP(uint poolId, uint _bBtc, uint minOut) external returns (uint outAmount) {
         bBtc.safeTransferFrom(msg.sender, address(this), _bBtc);
         uint btc = core.redeem(_bBtc.mul(redeemFeeFactor).div(PRECISION));
         CurvePool memory pool = pools[poolId];
@@ -102,15 +96,14 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
                 .min(pool.lpToken.balanceOf(address(this)));
             pool.lpToken.safeApprove(address(pool.sett), farm);
             pool.sett.deposit(farm);
-            settLP = settLP.min(pool.sett.balanceOf(address(this)));
+            outAmount = settLP.min(pool.sett.balanceOf(address(this)));
         }
-        require(settLP >= minOut, ERR_INSUFFICIENT_FUNDS);
-        pool.sett.safeTransfer(msg.sender, settLP);
-        emit Redeem(msg.sender, settLP);
-        return settLP;
+        require(outAmount >= minOut, ERR_INSUFFICIENT_FUNDS);
+        pool.sett.safeTransfer(msg.sender, outAmount);
+        emit Redeem(msg.sender, outAmount);
     }
 
-    function redeemInCurveLP(uint _bBtc, uint poolId, uint minOut) external returns (uint) {
+    function redeemInCurveLP(uint poolId, uint _bBtc, uint minOut) external returns (uint outAmount) {
         bBtc.safeTransferFrom(msg.sender, address(this), _bBtc);
         uint btc = core.redeem(_bBtc.mul(redeemFeeFactor).div(PRECISION));
         CurvePool memory pool = pools[poolId];
@@ -125,22 +118,26 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
         }
         require(curveLP >= minOut, ERR_INSUFFICIENT_FUNDS);
         pool.lpToken.safeTransfer(msg.sender, curveLP);
+        return curveLP;
     }
 
     /* ##### View ##### */
 
     // Sets minimum required on-hand to keep small withdrawals cheap
-    function toFarm(CurvePool memory pool) internal view returns (uint) {
+    function _balanceFunds(CurvePool memory pool) internal {
         uint here = pool.lpToken.balanceOf(address(this));
         uint total = pool.sett.balanceOf(address(this))
             .mul(pool.sett.getPricePerFullShare())
             .div(1e18)
             .add(here);
         uint shouldBeHere = total.mul(min).div(PRECISION);
-        if (here > shouldBeHere) {
-            return here.sub(shouldBeHere);
+        if (here <= shouldBeHere) {
+            return;
         }
-        return 0;
+        // best effort at keeping min.div(PRECISION) funds here
+        uint farm = here.sub(shouldBeHere);
+        pool.lpToken.safeApprove(address(pool.sett), farm);
+        pool.sett.deposit(farm);
     }
 
     function crvLPToBtc(ISwap swap) public view returns (uint) {
@@ -158,9 +155,10 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
             pool = pools[i];
             assets = pool.sett.balanceOf(address(this))
                 .mul(pool.sett.getPricePerFullShare())
+                .div(1e18)
                 .add(pool.lpToken.balanceOf(address(this)))
                 .mul(crvLPToBtc(pool.swap))
-                .div(1e36)
+                .div(1e18)
                 .add(assets);
         }
         return assets;

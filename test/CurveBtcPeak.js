@@ -1,6 +1,11 @@
 const { expect } = require("chai");
 const { BigNumber } = ethers
 
+const mintFeeFactor = BigNumber.from('9990')
+const redeemFeeFactor = BigNumber.from('9990')
+const PRECISION = BigNumber.from('10000')
+const ZERO = BigNumber.from('0')
+
 describe("CurveBtcPeak", function() {
     before('setup contracts', async function() {
         alice = (await ethers.getSigners())[0].address
@@ -39,12 +44,10 @@ describe("CurveBtcPeak", function() {
 
         await curveBtcPeak.mintWithCurveLP(0, amount)
 
-        expect(await curveLPToken.balanceOf(alice)).to.equal(BigNumber.from('0'));
-        expect(
-            await bBtc.balanceOf(alice)
-        ).to.equal(
-            amount.mul(BigNumber.from('9990')).div(BigNumber.from('10000')) // fee
-        );
+        expect(await curveLPToken.balanceOf(alice)).to.equal(ZERO);
+        const expectedAliceBalance = amount.mul(mintFeeFactor).div(PRECISION) // fee
+        expect(await bBtc.balanceOf(alice)).to.equal(expectedAliceBalance);
+        expect(await bBtc.balanceOf(curveBtcPeak.address)).to.equal(amount.sub(expectedAliceBalance));
         expect(
             await curveLPToken.balanceOf(curveBtcPeak.address)
         ).to.equal(
@@ -56,4 +59,64 @@ describe("CurveBtcPeak", function() {
         expect(await sett.balanceOf(curveBtcPeak.address)).to.equal(inSett)
         expect(await curveLPToken.balanceOf(sett.address)).to.equal(inSett)
     });
+
+    it('redeemInSettLP', async function() {
+        const { curveBtcPeak, bBtc, sett } = artifacts
+        const amount = await bBtc.balanceOf(alice)
+        await bBtc.approve(curveBtcPeak.address, amount)
+
+        const feeBefore = await bBtc.balanceOf(curveBtcPeak.address)
+        await curveBtcPeak.redeemInSettLP(0, amount, 0)
+
+        expect(await bBtc.balanceOf(alice)).to.equal(ZERO);
+        expect(
+            await sett.balanceOf(alice)
+        ).to.equal(
+            amount.mul(redeemFeeFactor).div(PRECISION)
+        );
+
+        expect(
+            (await bBtc.balanceOf(curveBtcPeak.address)).sub(feeBefore)
+        ).to.equal(
+            amount.mul(PRECISION.sub(redeemFeeFactor)).div(PRECISION)
+        );
+        expect(await sett.balanceOf(curveBtcPeak.address)).to.equal(ZERO);
+    })
+
+    it('mintWithSettLP', async function() {
+        const { curveBtcPeak, bBtc, sett } = artifacts
+
+        const bBtcAlice = await bBtc.balanceOf(alice)
+
+        const amount = await sett.balanceOf(alice)
+        await sett.approve(curveBtcPeak.address, amount)
+        await curveBtcPeak.mintWithSettLP(0, amount)
+
+        expect(await sett.balanceOf(alice)).to.equal(ZERO);
+        expect(
+            (await bBtc.balanceOf(alice)).sub(bBtcAlice)
+        ).to.equal(
+            amount.mul(mintFeeFactor).div(PRECISION)
+        );
+        expect(await sett.balanceOf(curveBtcPeak.address)).to.equal(amount);
+    })
+
+    it('redeemInCurveLP', async function() {
+        const { curveLPToken, curveBtcPeak, bBtc, sett } = artifacts
+
+        const feeBefore = await bBtc.balanceOf(curveBtcPeak.address)
+        const settLPBefore = await sett.balanceOf(curveBtcPeak.address)
+
+        const amount = await bBtc.balanceOf(alice)
+        await bBtc.approve(curveBtcPeak.address, amount)
+        await curveBtcPeak.redeemInCurveLP(0, amount, 0)
+
+        expect(await bBtc.balanceOf(alice)).to.equal(ZERO);
+        expect(await curveLPToken.balanceOf(alice)).to.equal(amount.mul(redeemFeeFactor).div(PRECISION));
+        expect(
+            (await bBtc.balanceOf(curveBtcPeak.address)).sub(feeBefore)
+        ).to.equal(
+            amount.mul(PRECISION.sub(redeemFeeFactor)).div(PRECISION)
+        );
+    })
 });
