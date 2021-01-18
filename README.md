@@ -14,6 +14,6 @@ npm run test
 
 3. Mainnet fork tests
 ```
-// Add your key in hardhat.config.js before running the below command 
+export ALCHEMY=<API_KEY>
 npm run test:fork
 ```
