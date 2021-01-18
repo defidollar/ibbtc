@@ -5,8 +5,9 @@
   "main": "index.js",
   "scripts": {
     "compile": "hardhat compile",
-    "test": "hardhat test test/*.js",
-    "test:fork": "npx hardhat --network ganache test test/fork/*.js"
+    "node": "hardhat node",
+    "test": "hardhat test --network local test/*.js",
+    "test:fork": "hardhat test test/fork/*.js"
   },
   "author": "",
   "license": "ISC",
