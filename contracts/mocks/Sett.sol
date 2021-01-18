@@ -30,4 +30,8 @@ contract Sett is ERC20, ISett {
     function getPricePerFullShare() override external view returns (uint256) {
         return 1e18;
     }
+
+    function approveContractAccess(address account) override external {
+        uint a;
+    }
 }
