@@ -7,15 +7,7 @@ require("solidity-coverage");
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
-  networks: {
-    local: {
-      url: 'http://127.0.0.1:8545',
-    },
-  },
-  solidity: {
-    version: '0.6.12',
-  },
-  mocha: {
-    timeout: 200000,
-  },
+    solidity: {
+        version: '0.6.12',
+    }
 }
