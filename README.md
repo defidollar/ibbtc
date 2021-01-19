@@ -8,12 +8,12 @@ npm run compile
 
 2. Unit Tests
 ```
-npm run node
-npm run test
+npm t
 ```
 
 3. Mainnet fork tests
 ```
 export ALCHEMY=<API_KEY>
-npm run test:fork
+npm run node
+npm run test:mainnet-fork
 ```

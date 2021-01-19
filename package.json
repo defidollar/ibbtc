@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "compile": "hardhat compile",
-    "node": "hardhat node",
-    "test": "hardhat test --network local test/*.js",
-    "test:fork": "hardhat test test/fork/*.js"
+    "test": "hardhat test",
+    "node": "hardhat node --fork https://eth-mainnet.alchemyapi.io/v2/$(echo $ALCHEMY) --fork-block-number 11679973",
+    "test:mainnet-fork": "MODE=FORK hardhat test --network local"
   },
   "author": "",
   "license": "ISC",

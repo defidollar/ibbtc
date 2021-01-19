@@ -6,6 +6,8 @@ interface ISett is IERC20 {
     function deposit(uint256 _amount) external;
     function withdraw(uint256 _shares) external;
     function withdrawAll() external;
-    function getPricePerFullShare() external view returns (uint256);
     function approveContractAccess(address account) external;
+
+    function getPricePerFullShare() external view returns (uint256);
+    function balance() external view returns (uint256);
 }

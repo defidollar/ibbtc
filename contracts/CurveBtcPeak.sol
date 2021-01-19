@@ -59,10 +59,7 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
 
     function mintWithCurveLP(uint poolId, uint inAmount) external returns(uint outAmount) {
         CurvePool memory pool = pools[poolId];
-        require(
-            address(pool.lpToken) != address(0),
-            "Curve LP Token not supported"
-        );
+        // will revert if user passed an unsupported poolId
         outAmount = _mint(inAmount.mul(pool.swap.get_virtual_price()).div(1e18));
         pool.lpToken.safeTransferFrom(msg.sender, address(this), inAmount);
         _balanceFunds(pool);
