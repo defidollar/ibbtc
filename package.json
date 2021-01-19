@@ -6,8 +6,7 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "node": "hardhat node --fork https://eth-mainnet.alchemyapi.io/v2/$(echo $ALCHEMY) --fork-block-number 11679973",
-    "test:mainnet-fork": "MODE=FORK hardhat test --network local"
+    "test:mainnet-fork": "MODE=FORK hardhat test"
   },
   "author": "",
   "license": "ISC",

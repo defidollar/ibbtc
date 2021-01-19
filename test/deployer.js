@@ -21,12 +21,21 @@ async function setupContracts() {
         curveBtcPeak.initialize(core.address, bBtc.address),
         curveBtcPeak.whitelistCurvePool(curveLPToken.address, swap.address, sett.address)
     ])
-    return { curveBtcPeak, curveLPToken, bBtc, sett, swap }
+    return { curveBtcPeak, curveLPToken, bBtc, sett, swap, core }
 }
 
 const badgerDevMultisig = '0xB65cef03b9B89f99517643226d76e286ee999e77'
 
 async function setupMainnetContracts() {
+    await network.provider.request({
+        method: "hardhat_reset",
+        params: [{
+            forking: {
+                jsonRpcUrl: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY}`,
+                blockNumber: 11685090 // having a consistent block number speeds up the tests across runs
+            }
+        }]
+    })
     const [CurveBtcPeak, Core, bBTC] = await Promise.all([
         ethers.getContractFactory('CurveBtcPeak'),
         ethers.getContractFactory('Core'),
@@ -53,11 +62,11 @@ async function setupMainnetContracts() {
     await web3.eth.sendTransaction({ to: badgerDevMultisig, value: web3.utils.toWei('1'), from: (await ethers.getSigners())[0].address })
     await impersonateAccount(badgerDevMultisig)
     await sett.connect(ethers.provider.getSigner(badgerDevMultisig)).approveContractAccess(curveBtcPeak.address)
-    return { curveBtcPeak, curveLPToken, bBtc, sett, swap }
+    return { curveBtcPeak, curveLPToken, bBtc, sett, swap, core }
 
 }
 
-const crvRenWSBTCHolder = '0x15bf9a8de0e56112ee0fcf85e3c4e54fb22346dc'
+const crvRenWSBTCHolder = '0x664dd5bcf28bbb3518ff532a384849830f2154ea'
 
 async function getCrvRenWSBTC(curveLPToken, account, amount) {
     if (process.env.MODE === 'FORK') {
@@ -68,7 +77,7 @@ async function getCrvRenWSBTC(curveLPToken, account, amount) {
 }
 
 async function impersonateAccount(account) {
-    await hre.network.provider.request({
+    await network.provider.request({
         method: 'hardhat_impersonateAccount',
         params: [account],
     })

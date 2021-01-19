@@ -14,6 +14,5 @@ npm t
 3. Mainnet fork tests
 ```
 export ALCHEMY=<API_KEY>
-npm run node
 npm run test:mainnet-fork
 ```

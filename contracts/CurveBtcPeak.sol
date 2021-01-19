@@ -82,18 +82,18 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
         bBtc.safeTransferFrom(msg.sender, address(this), _bBtc);
         uint btc = core.redeem(_bBtc.mul(redeemFeeFactor).div(PRECISION));
         CurvePool memory pool = pools[poolId];
-        uint settLP = btc.mul(1e18).div(settToBtc(pool.swap, pool.sett));
+        outAmount = btc.mul(1e18).div(settToBtc(pool.swap, pool.sett));
         uint here = pool.sett.balanceOf(address(this));
-        if (here < settLP) {
-            // if there is not enough settLP, we make a best effort to deposit crvLP to settLP
+        if (here < outAmount) {
+            // if there is not enough settLP, we make a best effort to deposit crvLP to sett
             // how much are we short?
-            uint farm = settLP.sub(here)
+            uint farm = outAmount.sub(here)
                 .mul(pool.sett.getPricePerFullShare())
                 .div(1e18)
                 .min(pool.lpToken.balanceOf(address(this)));
             pool.lpToken.safeApprove(address(pool.sett), farm);
             pool.sett.deposit(farm);
-            outAmount = settLP.min(pool.sett.balanceOf(address(this)));
+            outAmount = outAmount.min(pool.sett.balanceOf(address(this)));
         }
         require(outAmount >= minOut, ERR_INSUFFICIENT_FUNDS);
         pool.sett.safeTransfer(msg.sender, outAmount);
