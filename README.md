@@ -16,3 +16,8 @@ npm t
 export ALCHEMY=<API_KEY>
 npm run test:mainnet-fork
 ```
+
+4. Coverage
+```
+npm run coverage
+```
