@@ -69,11 +69,8 @@ async function setupMainnetContracts() {
 const crvRenWSBTCHolder = '0x664dd5bcf28bbb3518ff532a384849830f2154ea'
 
 async function getCrvRenWSBTC(curveLPToken, account, amount) {
-    if (process.env.MODE === 'FORK') {
-        await impersonateAccount(crvRenWSBTCHolder)
-        return curveLPToken.connect(ethers.provider.getSigner(crvRenWSBTCHolder)).transfer(account, amount)
-    }
-    return curveLPToken.mint(alice, amount)
+    await impersonateAccount(crvRenWSBTCHolder)
+    return curveLPToken.connect(ethers.provider.getSigner(crvRenWSBTCHolder)).transfer(account, amount)
 }
 
 async function impersonateAccount(account) {

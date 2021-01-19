@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "compile": "hardhat compile",
-    "test": "hardhat test",
-    "test:mainnet-fork": "MODE=FORK hardhat test"
+    "test": "hardhat test test/*.test.js",
+    "test:mainnet-fork": "hardhat test test/mainnet-fork/*.test.js"
   },
   "author": "",
   "license": "ISC",
