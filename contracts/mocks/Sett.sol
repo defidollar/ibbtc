@@ -27,7 +27,13 @@ contract Sett is ERC20, ISett {
         token.transfer(msg.sender, _shares);
     }
 
+    function approveContractAccess(address account) override external {}
+
     function getPricePerFullShare() override external view returns (uint256) {
         return 1e18;
+    }
+
+    function balance() override external view returns (uint256) {
+        return token.balanceOf(address(this));
     }
 }

@@ -6,13 +6,14 @@ import {Math} from "@openzeppelin/contracts/math/Math.sol";
 
 import {IPeak} from "./interfaces/IPeak.sol";
 import {IbBTC} from "./interfaces/IbBTC.sol";
+import {ICore} from "./interfaces/ICore.sol";
 
 import {Initializable} from "./common/Initializable.sol";
 import {GovernableProxy} from "./common/GovernableProxy.sol";
 
 import "hardhat/console.sol";  // @todo remove
 
-contract Core is GovernableProxy, Initializable {
+contract Core is GovernableProxy, Initializable, ICore {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
     using Math for uint;
@@ -48,7 +49,7 @@ contract Core is GovernableProxy, Initializable {
     * @param btc BTC amount supplied
     * @return _bBtc Badger BTC that was minted
     */
-    function mint(uint btc) external returns(uint) {
+    function mint(uint btc) override external returns(uint) {
         require(peaks[msg.sender].state == PeakState.Active, "PEAK_INACTIVE");
         uint _totalSupply = bBtc.totalSupply();
         uint _bBtc;
@@ -67,15 +68,22 @@ contract Core is GovernableProxy, Initializable {
     * @param _bBtc bBTC amount to redeem
     * @return btc that user should receive
     */
-    function redeem(uint _bBtc) external returns(uint) {
+    function redeem(uint _bBtc) override external returns(uint) {
         require(peaks[msg.sender].state != PeakState.Extinct, "PEAK_EXTINCT");
-        uint btc = _bBtc.mul(totalSystemAssets()).div(bBtc.totalSupply());
+        uint btc = _bBtc.mul(getPricePerFullShare()).div(1e18);
         bBtc.burn(msg.sender, _bBtc);
         return btc;
     }
 
-
     /* ##### View ##### */
+
+    function getPricePerFullShare() override public view returns (uint) {
+        uint _totalSupply = bBtc.totalSupply();
+        if (_totalSupply > 0) {
+            return totalSystemAssets().mul(1e18).div(_totalSupply);
+        }
+        return 1e18;
+    }
 
     function totalSystemAssets() public view returns (uint _totalAssets) {
         for (uint i = 0; i < peaksAddresses.length; i++) {
@@ -88,7 +96,6 @@ contract Core is GovernableProxy, Initializable {
             );
         }
     }
-
 
     /* ##### Admin ##### */
 

@@ -2,6 +2,8 @@ pragma solidity 0.6.12;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
+import {ICore} from "./interfaces/ICore.sol";
+
 contract bBTC is ERC20 {
     address public immutable core;
 
@@ -23,5 +25,9 @@ contract bBTC is ERC20 {
 
     function burn(address account, uint amount) public onlyCore {
         _burn(account, amount);
+    }
+
+    function getPricePerFullShare() public view returns (uint) {
+        return ICore(core).getPricePerFullShare();
     }
 }

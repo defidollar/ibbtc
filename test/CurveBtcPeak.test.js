@@ -1,6 +1,8 @@
 const { expect } = require("chai");
 const { BigNumber } = ethers
 
+const deployer = require('./deployer')
+
 const mintFeeFactor = BigNumber.from('9990')
 const redeemFeeFactor = BigNumber.from('9990')
 const PRECISION = BigNumber.from('10000')
@@ -8,30 +10,8 @@ const ZERO = BigNumber.from('0')
 
 describe("CurveBtcPeak", function() {
     before('setup contracts', async function() {
+        artifacts = await deployer.setupContracts()
         alice = (await ethers.getSigners())[0].address
-        const [ CurveBtcPeak, Core, bBTC, CurveLPToken, Swap, Sett ] = await Promise.all([
-            ethers.getContractFactory("CurveBtcPeak"),
-            ethers.getContractFactory("Core"),
-            ethers.getContractFactory("bBTC"),
-            ethers.getContractFactory("CurveLPToken"),
-            ethers.getContractFactory("Swap"),
-            ethers.getContractFactory("Sett")
-        ])
-        const core = await Core.deploy()
-        const [ bBtc, curveBtcPeak, curveLPToken, swap ] = await Promise.all([
-            bBTC.deploy(core.address),
-            CurveBtcPeak.deploy(),
-            CurveLPToken.deploy(),
-            Swap.deploy(),
-        ])
-        const sett = await Sett.deploy(curveLPToken.address)
-        await Promise.all([
-            core.initialize(bBtc.address),
-            core.whitelistPeak(curveBtcPeak.address),
-            curveBtcPeak.initialize(core.address, bBtc.address),
-            curveBtcPeak.whitelistCurvePool(curveLPToken.address, swap.address, sett.address)
-        ])
-        artifacts = { curveBtcPeak, curveLPToken, bBtc, sett }
     })
 
     it('mintWithCurveLP', async function() {

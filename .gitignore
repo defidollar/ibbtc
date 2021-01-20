@@ -1,4 +1,6 @@
 node_modules
+sett.sol
+*.env
 
 #Hardhat files
 cache
