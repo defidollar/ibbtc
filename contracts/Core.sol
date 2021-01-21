@@ -26,7 +26,7 @@ contract Core is GovernableProxy, Initializable, ICore {
     mapping(address => Peak) public peaks;
     address[] public peaksAddresses;
 
-    IbBTC public bBtc;
+    IbBTC public bBTC;
 
     // END OF STORAGE VARIABLES
 
@@ -34,51 +34,46 @@ contract Core is GovernableProxy, Initializable, ICore {
 
     /**
     * @dev Used to initialize contract state from the proxy
+    * @param _bBTC bBTC token address
     */
-    function initialize(IbBTC _bBtc) external notInitialized {
+    function initialize(IbBTC _bBTC) external notInitialized {
         require(
-            address(_bBtc) != address(0),
+            address(_bBTC) != address(0),
             "0 address during initialization"
         );
-        bBtc = _bBtc;
+        bBTC = _bBTC;
     }
 
     /**
     * @notice Mint bBTC
     * @dev Only whitelisted peaks can call this function
-    * @param btc BTC amount supplied
-    * @return _bBtc Badger BTC that was minted
+    * @param btc BTC amount supplied, scaled by 1e18
+    * @return bBtc Badger BTC that was minted
     */
-    function mint(uint btc) override external returns(uint) {
+    function mint(uint btc) override external returns(uint bBtc) {
         require(peaks[msg.sender].state == PeakState.Active, "PEAK_INACTIVE");
-        uint _totalSupply = bBtc.totalSupply();
-        uint _bBtc;
-        if (_totalSupply > 0) {
-            _bBtc = btc.mul(_totalSupply).div(totalSystemAssets());
-        } else {
-            _bBtc = btc;
-        }
-        bBtc.mint(msg.sender, _bBtc);
-        return _bBtc;
+        // getPricePerFullShare can lose precision during division.
+        // Dividing by a rounded-down value can round up the value, hence manually round it down.
+        bBtc = btc.div(getPricePerFullShare()).sub(1);
+        bBTC.mint(msg.sender, bBtc);
     }
 
     /**
     * @notice Redeem bBTC
     * @dev Only whitelisted peaks can call this function
-    * @param _bBtc bBTC amount to redeem
-    * @return btc that user should receive
+    * @param bBtc bBTC amount to redeem
+    * @return btc amount redeemed, scaled by 1e18
     */
-    function redeem(uint _bBtc) override external returns(uint) {
+    function redeem(uint bBtc) override external returns(uint btc) {
         require(peaks[msg.sender].state != PeakState.Extinct, "PEAK_EXTINCT");
-        uint btc = _bBtc.mul(getPricePerFullShare()).div(1e18);
-        bBtc.burn(msg.sender, _bBtc);
-        return btc;
+        btc = bBtc.mul(getPricePerFullShare());
+        bBTC.burn(msg.sender, bBtc);
     }
 
     /* ##### View ##### */
 
     function getPricePerFullShare() override public view returns (uint) {
-        uint _totalSupply = bBtc.totalSupply();
+        uint _totalSupply = bBTC.totalSupply();
         if (_totalSupply > 0) {
             return totalSystemAssets().mul(1e18).div(_totalSupply);
         }

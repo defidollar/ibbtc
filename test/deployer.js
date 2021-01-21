@@ -1,4 +1,4 @@
-async function setupContracts() {
+async function setupContracts(feeSink) {
     const [ CurveBtcPeak, Core, bBTC, CurveLPToken, Swap, Sett ] = await Promise.all([
         ethers.getContractFactory("CurveBtcPeak"),
         ethers.getContractFactory("Core"),
@@ -18,7 +18,7 @@ async function setupContracts() {
     await Promise.all([
         core.initialize(bBtc.address),
         core.whitelistPeak(curveBtcPeak.address),
-        curveBtcPeak.initialize(core.address, bBtc.address),
+        curveBtcPeak.initialize(core.address, bBtc.address, feeSink),
         curveBtcPeak.whitelistCurvePool(curveLPToken.address, swap.address, sett.address)
     ])
     return { curveBtcPeak, curveLPToken, bBtc, sett, swap, core }
@@ -26,7 +26,7 @@ async function setupContracts() {
 
 const badgerDevMultisig = '0xB65cef03b9B89f99517643226d76e286ee999e77'
 
-async function setupMainnetContracts() {
+async function setupMainnetContracts(feeSink) {
     await network.provider.request({
         method: "hardhat_reset",
         params: [{
@@ -52,7 +52,7 @@ async function setupMainnetContracts() {
     await Promise.all([
         core.initialize(bBtc.address),
         core.whitelistPeak(curveBtcPeak.address),
-        curveBtcPeak.initialize(core.address, bBtc.address),
+        curveBtcPeak.initialize(core.address, bBtc.address, feeSink),
         curveBtcPeak.whitelistCurvePool(
             curveLPToken.address,
             swap.address,
