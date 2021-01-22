@@ -9,8 +9,8 @@ import {ICore} from "./interfaces/ICore.sol";
 import {ISett} from "./interfaces/ISett.sol";
 import {IPeak} from "./interfaces/IPeak.sol";
 
-import {Initializable} from "./common/Initializable.sol";
-import {GovernableProxy} from "./common/GovernableProxy.sol";
+import {Initializable} from "./common/proxy/Initializable.sol";
+import {GovernableProxy} from "./common/proxy/GovernableProxy.sol";
 
 import "hardhat/console.sol"; // @todo remove
 
@@ -20,8 +20,10 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
     using SafeMath for uint;
     using Math for uint;
 
-    string constant ERR_INSUFFICIENT_FUNDS = "INSUFFICIENT_FUNDS";
     uint constant PRECISION = 1e4;
+
+    ICore public immutable core;
+    IERC20 public immutable bBtc;
 
     struct CurvePool {
         IERC20 lpToken;
@@ -30,92 +32,137 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
     }
     mapping(uint => CurvePool) pools;
 
-    ICore core;
-    IERC20 bBtc;
-
-    uint min;
-    uint redeemFeeFactor;
-    uint mintFeeFactor;
-    uint numPools;
+    uint public min;
+    uint public redeemFeeFactor;
+    uint public mintFeeFactor;
+    uint public numPools;
+    address public feeSink;
 
     // END OF STORAGE VARIABLES
 
     event Mint(address account, uint amount);
     event Redeem(address account, uint amount);
     event PoolWhitelisted(address lpToken, address swap, address sett);
+    event FeeCollected(uint amount);
 
-    function initialize(ICore _core, IERC20 _bBtc)
-        public
-        notInitialized
-    {
-        core = _core;
-        bBtc = _bBtc;
-        _setParams(
-            1000, // 1000 / PRECISION implies to keep 10% of curve LP token in the contract
-            9990, // 9990 / PRECISION implies a mint fee of 0.1%
-            9990 // 9990 / PRECISION implies a redeem fee of 0.1%
-        );
+    /**
+    * @param _core Address of the the Core contract
+    * @param _bBtc Address of the the bBTC token contract
+    */
+    constructor(address _core, address _bBtc) public {
+        core = ICore(_core);
+        bBtc = IERC20(_bBtc);
     }
 
-    function mintWithCurveLP(uint poolId, uint inAmount) external returns(uint outAmount) {
+    /**
+    * @notice Mint bBTC with curve pool LP token
+    * @param poolId System internal ID of the whitelisted curve pool
+    * @param inAmount Amount of LP token to mint bBTC with
+    * @return outAmount Amount of bBTC minted to user's account
+    */
+    function mintWithCurveLP(uint poolId, uint inAmount)
+        external
+        returns(uint outAmount)
+    {
         CurvePool memory pool = pools[poolId];
         // will revert if user passed an unsupported poolId
-        outAmount = _mint(inAmount.mul(pool.swap.get_virtual_price()).div(1e18));
+        // not dividing by 1e18 allows us a gas optimization in core.mint
+        outAmount = _mint(inAmount.mul(pool.swap.get_virtual_price()));
         pool.lpToken.safeTransferFrom(msg.sender, address(this), inAmount);
         _balanceFunds(pool);
     }
 
-    function mintWithSettLP(uint poolId, uint inAmount) external returns(uint outAmount) {
+    /**
+    * @notice Mint bBTC with Sett LP token
+    * @param poolId System internal ID of the whitelisted curve pool
+    * @param inAmount Amount of Sett LP token to mint bBTC with
+    * @return outAmount Amount of bBTC minted to user's account
+    */
+    function mintWithSettLP(uint poolId, uint inAmount)
+        external
+        returns(uint outAmount)
+    {
         CurvePool memory pool = pools[poolId];
-        outAmount = _mint(inAmount.mul(settToBtc(pool.swap, pool.sett)).div(1e18));
+        // not dividing by 1e18 allows us a gas optimization in core.mint
+        outAmount = _mint(inAmount.mul(settToBtc(pool.swap, pool.sett)));
         // will revert if user passed an unsupported poolId
         pool.sett.safeTransferFrom(msg.sender, address(this), inAmount);
     }
 
-    function _mint(uint btc) internal returns(uint outAmount) {
+    /**
+    * @dev Mints bBTC to the user's account after charging mint fee
+    * @param btc BTC supplied, scaled by 1e18
+    * @return outAmount Amount of bBTC minted to user's account
+    */
+    function _mint(uint btc)
+        internal
+        returns(uint outAmount)
+    {
         outAmount = core.mint(btc).mul(mintFeeFactor).div(PRECISION);
         bBtc.safeTransfer(msg.sender, outAmount);
         emit Mint(msg.sender, outAmount);
     }
 
-    function redeemInSettLP(uint poolId, uint _bBtc, uint minOut) external returns (uint outAmount) {
-        bBtc.safeTransferFrom(msg.sender, address(this), _bBtc);
-        uint btc = core.redeem(_bBtc.mul(redeemFeeFactor).div(PRECISION));
+    /**
+    * @notice Redeem bBTC in curve pool LP token
+    * @dev Might require a partial/full Sett withdrawal, and hence sett withdrawal fee might be charged on that amount
+    * @param poolId System internal ID of the whitelisted curve pool
+    * @param inAmount Amount of bBTC to redeem
+    * @return outAmount Amount of curve pool LP token
+    */
+    function redeemInCurveLP(uint poolId, uint inAmount)
+        external
+        returns (uint outAmount)
+    {
+        bBtc.safeTransferFrom(msg.sender, address(this), inAmount);
         CurvePool memory pool = pools[poolId];
-        outAmount = btc.mul(1e18).div(settToBtc(pool.swap, pool.sett));
-        uint here = pool.sett.balanceOf(address(this));
+        outAmount = core.redeem(inAmount.mul(redeemFeeFactor).div(PRECISION))
+            .div(crvLPToBtc(pool.swap));
+        uint here = pool.lpToken.balanceOf(address(this));
         if (here < outAmount) {
-            // if there is not enough settLP, we make a best effort to deposit crvLP to sett
-            // how much are we short?
-            uint farm = outAmount.sub(here)
-                .mul(pool.sett.getPricePerFullShare())
-                .div(1e18)
-                .min(pool.lpToken.balanceOf(address(this)));
-            pool.lpToken.safeApprove(address(pool.sett), farm);
-            pool.sett.deposit(farm);
-            outAmount = outAmount.min(pool.sett.balanceOf(address(this)));
+            // withdraw only as much as needed from the vault
+            uint withdraw = outAmount.sub(here)
+                .mul(1e18)
+                .div(pool.sett.getPricePerFullShare())
+                .min(pool.sett.balanceOf(address(this))); // can't withdraw more than we have
+            pool.sett.withdraw(withdraw);
+            // since a withdrawal fee was charged, this is the most decent way to determine the outAmount
+            outAmount = pool.lpToken.balanceOf(address(this));
         }
-        require(outAmount >= minOut, ERR_INSUFFICIENT_FUNDS);
-        pool.sett.safeTransfer(msg.sender, outAmount);
-        emit Redeem(msg.sender, outAmount);
+        pool.lpToken.safeTransfer(msg.sender, outAmount);
+        emit Redeem(msg.sender, inAmount);
     }
 
-    function redeemInCurveLP(uint poolId, uint _bBtc, uint minOut) external returns (uint outAmount) {
-        bBtc.safeTransferFrom(msg.sender, address(this), _bBtc);
-        uint btc = core.redeem(_bBtc.mul(redeemFeeFactor).div(PRECISION));
+    /**
+    * @notice Redeem bBTC in Sett LP tokens
+    * @dev There might not be enough Sett LP to fulfill the request, in which case the transaction will revert
+    * @param poolId System internal ID of the whitelisted curve pool
+    * @param inAmount Amount of bBTC to redeem
+    * @return outAmount Amount of Sett LP token
+    */
+    function redeemInSettLP(uint poolId, uint inAmount)
+        external
+        returns (uint outAmount)
+    {
+        bBtc.safeTransferFrom(msg.sender, address(this), inAmount);
+        uint btc = core.redeem(inAmount.mul(redeemFeeFactor).div(PRECISION));
         CurvePool memory pool = pools[poolId];
-        uint curveLP = btc.mul(1e18).div(crvLPToBtc(pool.swap));
-        uint here = pool.lpToken.balanceOf(address(this));
-        if (here < curveLP) {
-            // withdraw only as much as needed from the vault
-            uint _withdraw = curveLP.sub(here).mul(1e18).div(pool.sett.getPricePerFullShare())
-                .min(pool.sett.balanceOf(address(this)));
-            pool.sett.withdraw(_withdraw);
-            curveLP = pool.lpToken.balanceOf(address(this));
+        outAmount = btc.div(settToBtc(pool.swap, pool.sett));
+        // will revert if the contract has insufficient funds.
+        // This opens up a couple front-running vectors. @todo Discuss with Badger team about possibilities.
+        pool.sett.safeTransfer(msg.sender, outAmount);
+        emit Redeem(msg.sender, inAmount);
+    }
+
+    /**
+    * @notice Collect all the accumulated fee (denominated in bBTC)
+    */
+    function collectAdminFee() external {
+        uint amount = bBtc.balanceOf(address(this));
+        if (amount > 0) {
+            bBtc.safeTransfer(feeSink, amount);
+            emit FeeCollected(amount);
         }
-        require(curveLP >= minOut, ERR_INSUFFICIENT_FUNDS);
-        pool.lpToken.safeTransfer(msg.sender, curveLP);
-        return curveLP;
     }
 
     /* ##### View ##### */
@@ -163,32 +210,48 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
 
     /* ##### Admin ##### */
 
-    function whitelistCurvePool(address lpToken, address swap, address sett)
+    function whitelistCurvePool(
+        address lpToken,
+        address swap,
+        address sett
+    )
         external
         onlyOwner
     {
+        require(
+            lpToken != address(0) && swap != address(0) && sett != address(0),
+            "NULL_ADDRESS"
+        );
         pools[numPools++] = CurvePool(IERC20(lpToken), ISwap(swap), ISett(sett));
         emit PoolWhitelisted(lpToken, swap, sett);
     }
 
-    function setParams(uint _min, uint _mintFeeFactor, uint _redeemFeeFactor)
+    /**
+    * @notice Set config
+    * @param _min Keeps (_min / 1e14) of funds in vanilla Curve pool LP token and deposits the rest in corresponding Sett vault
+    * @param _mintFeeFactor _mintFeeFactor = 9990 would mean a redeem fee of 0.1% (9990 / 1e4)
+    * @param _redeemFeeFactor _redeemFeeFactor = 9990 would mean a redeem fee of 0.1% (9990 / 1e4)
+    * @param _feeSink Address of the EOA/contract where accumulated fee will be transferred
+    */
+    function modifyConfig(
+        uint _min,
+        uint _mintFeeFactor,
+        uint _redeemFeeFactor,
+        address _feeSink
+    )
         external
         onlyOwner
-    {
-        _setParams(_min, _mintFeeFactor, _redeemFeeFactor);
-    }
-
-    function _setParams(uint _min, uint _mintFeeFactor, uint _redeemFeeFactor)
-        internal
     {
         require(
             _min <= PRECISION
             && _mintFeeFactor <= PRECISION
             && _redeemFeeFactor <= PRECISION,
-            "INVALID"
+            "INVALID_PARAMETERS"
         );
+        require(_feeSink != address(0), "NULL_ADDRESS");
         min = _min;
         mintFeeFactor = _mintFeeFactor;
         redeemFeeFactor = _redeemFeeFactor;
+        feeSink = _feeSink;
     }
 }
