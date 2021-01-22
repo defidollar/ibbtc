@@ -9,8 +9,8 @@ import {ICore} from "./interfaces/ICore.sol";
 import {ISett} from "./interfaces/ISett.sol";
 import {IPeak} from "./interfaces/IPeak.sol";
 
-import {Initializable} from "./common/Initializable.sol";
-import {GovernableProxy} from "./common/GovernableProxy.sol";
+import {Initializable} from "./common/proxy/Initializable.sol";
+import {GovernableProxy} from "./common/proxy/GovernableProxy.sol";
 
 import "hardhat/console.sol"; // @todo remove
 
@@ -30,8 +30,8 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
     }
     mapping(uint => CurvePool) pools;
 
-    ICore core;
-    IERC20 bBtc;
+    ICore public immutable core;
+    IERC20 public immutable bBtc;
 
     uint public min;
     uint public redeemFeeFactor;
@@ -47,21 +47,12 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
     event FeeCollected(uint amount);
 
     /**
-    * @notice Used to initialize the proxy contract that delegatecalls to this one
     * @param _core Address of the the Core contract
     * @param _bBtc Address of the the bBTC token contract
-    * @param _feeSink Address of the EOA/contract where accumulated fee will be transferred
     */
-    function initialize(address _core, address _bBtc, address _feeSink)
-        external
-        notInitialized
-    {
+    constructor(address _core, address _bBtc) public {
         core = ICore(_core);
         bBtc = IERC20(_bBtc);
-        feeSink = _feeSink;
-        // Keeps (1000 / 1e14) 10% of funds in vanilla Curve pool LP token and deposits the rest in corresponding Sett vault
-        // mintFee = redeemFee = 9990 / 1e4 = 0.1%
-        _setParams(1000, 9990, 9990);
     }
 
     /**
@@ -231,23 +222,19 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
         emit PoolWhitelisted(lpToken, swap, sett);
     }
 
-    function changeFeeSink(address _feeSink)
+    /**
+    * @dev Keeps (1000 / 1e14) 10% of funds in vanilla Curve pool LP token and deposits the rest in corresponding Sett vault
+    * @dev mintFee = redeemFee = 9990 / 1e4 = 0.1%
+    * @param _feeSink Address of the EOA/contract where accumulated fee will be transferred
+    */
+    function modifyConfig(
+        uint _min,
+        uint _mintFeeFactor,
+        uint _redeemFeeFactor,
+        address _feeSink
+    )
         external
         onlyOwner
-    {
-        require(_feeSink != address(0), "NULL_ADDRESS");
-        feeSink = _feeSink;
-    }
-
-    function setParams(uint _min, uint _mintFeeFactor, uint _redeemFeeFactor)
-        external
-        onlyOwner
-    {
-        _setParams(_min, _mintFeeFactor, _redeemFeeFactor);
-    }
-
-    function _setParams(uint _min, uint _mintFeeFactor, uint _redeemFeeFactor)
-        internal
     {
         require(
             _min <= PRECISION
@@ -255,8 +242,10 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
             && _redeemFeeFactor <= PRECISION,
             "INVALID_PARAMETERS"
         );
+        require(_feeSink != address(0), "NULL_ADDRESS");
         min = _min;
         mintFeeFactor = _mintFeeFactor;
         redeemFeeFactor = _redeemFeeFactor;
+        feeSink = _feeSink;
     }
 }

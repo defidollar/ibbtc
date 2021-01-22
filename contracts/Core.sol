@@ -8,8 +8,8 @@ import {IPeak} from "./interfaces/IPeak.sol";
 import {IbBTC} from "./interfaces/IbBTC.sol";
 import {ICore} from "./interfaces/ICore.sol";
 
-import {Initializable} from "./common/Initializable.sol";
-import {GovernableProxy} from "./common/GovernableProxy.sol";
+import {Initializable} from "./common/proxy/Initializable.sol";
+import {GovernableProxy} from "./common/proxy/GovernableProxy.sol";
 
 import "hardhat/console.sol";  // @todo remove
 
@@ -26,17 +26,16 @@ contract Core is GovernableProxy, Initializable, ICore {
     mapping(address => Peak) public peaks;
     address[] public peaksAddresses;
 
-    IbBTC public bBTC;
+    IbBTC public immutable bBTC;
 
     // END OF STORAGE VARIABLES
 
     event PeakWhitelisted(address indexed peak);
 
     /**
-    * @dev Used to initialize contract state from the proxy
     * @param _bBTC bBTC token address
     */
-    function initialize(IbBTC _bBTC) external notInitialized {
+    constructor(IbBTC _bBTC) public {
         require(
             address(_bBTC) != address(0),
             "0 address during initialization"
