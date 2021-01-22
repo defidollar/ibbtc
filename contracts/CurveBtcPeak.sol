@@ -20,8 +20,10 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
     using SafeMath for uint;
     using Math for uint;
 
-    string constant ERR_INSUFFICIENT_FUNDS = "INSUFFICIENT_FUNDS";
     uint constant PRECISION = 1e4;
+
+    ICore public immutable core;
+    IERC20 public immutable bBtc;
 
     struct CurvePool {
         IERC20 lpToken;
@@ -29,9 +31,6 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
         ISett sett;
     }
     mapping(uint => CurvePool) pools;
-
-    ICore public immutable core;
-    IERC20 public immutable bBtc;
 
     uint public min;
     uint public redeemFeeFactor;
@@ -149,7 +148,8 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
         uint btc = core.redeem(inAmount.mul(redeemFeeFactor).div(PRECISION));
         CurvePool memory pool = pools[poolId];
         outAmount = btc.div(settToBtc(pool.swap, pool.sett));
-        require(pool.sett.balanceOf(address(this)) >= outAmount, ERR_INSUFFICIENT_FUNDS);
+        // will revert if the contract has insufficient funds.
+        // This opens up a couple front-running vectors. @todo Discuss with Badger team about possibilities.
         pool.sett.safeTransfer(msg.sender, outAmount);
         emit Redeem(msg.sender, inAmount);
     }
@@ -210,7 +210,11 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
 
     /* ##### Admin ##### */
 
-    function whitelistCurvePool(address lpToken, address swap, address sett)
+    function whitelistCurvePool(
+        address lpToken,
+        address swap,
+        address sett
+    )
         external
         onlyOwner
     {
@@ -223,8 +227,10 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
     }
 
     /**
-    * @dev Keeps (1000 / 1e14) 10% of funds in vanilla Curve pool LP token and deposits the rest in corresponding Sett vault
-    * @dev mintFee = redeemFee = 9990 / 1e4 = 0.1%
+    * @notice Set config
+    * @param _min Keeps (_min / 1e14) of funds in vanilla Curve pool LP token and deposits the rest in corresponding Sett vault
+    * @param _mintFeeFactor _mintFeeFactor = 9990 would mean a redeem fee of 0.1% (9990 / 1e4)
+    * @param _redeemFeeFactor _redeemFeeFactor = 9990 would mean a redeem fee of 0.1% (9990 / 1e4)
     * @param _feeSink Address of the EOA/contract where accumulated fee will be transferred
     */
     function modifyConfig(

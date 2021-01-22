@@ -35,12 +35,9 @@ contract Core is GovernableProxy, Initializable, ICore {
     /**
     * @param _bBTC bBTC token address
     */
-    constructor(IbBTC _bBTC) public {
-        require(
-            address(_bBTC) != address(0),
-            "0 address during initialization"
-        );
-        bBTC = _bBTC;
+    constructor(address _bBTC) public {
+        require(_bBTC != address(0), "NULL_ADDRESS");
+        bBTC = IbBTC(_bBTC);
     }
 
     /**
