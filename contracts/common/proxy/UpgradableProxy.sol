@@ -1,4 +1,4 @@
-pragma solidity 0.6.12;
+pragma solidity 0.6.11;
 
 import {Proxy} from "./Proxy.sol";
 import {GovernableProxy} from "./GovernableProxy.sol";
@@ -8,7 +8,7 @@ contract UpgradableProxy is GovernableProxy, Proxy {
 
     event ProxyUpdated(address indexed previousImpl, address indexed newImpl);
 
-    fallback() external payable {
+    fallback() external {
         delegatedFwd(implementation(), msg.data);
     }
 
@@ -19,7 +19,7 @@ contract UpgradableProxy is GovernableProxy, Proxy {
         }
     }
 
-    function updateImplementation(address _newProxyTo) public onlyOwner {
+    function updateImplementation(address _newProxyTo) external onlyOwner {
         require(_newProxyTo != address(0x0), "INVALID_PROXY_ADDRESS");
         require(isContract(_newProxyTo), "DESTINATION_ADDRESS_IS_NOT_A_CONTRACT");
         emit ProxyUpdated(implementation(), _newProxyTo);

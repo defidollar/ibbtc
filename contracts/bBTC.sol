@@ -1,16 +1,18 @@
-pragma solidity 0.6.12;
+pragma solidity 0.6.11;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {ICore} from "./interfaces/ICore.sol";
+import {IbBTC} from "./interfaces/IbBTC.sol";
 
-contract bBTC is ERC20 {
+contract bBTC is ERC20, IbBTC {
     address public immutable core;
 
     constructor(address _core)
         public
         ERC20("Badger BTC", "bBTC")
     {
+        require(_core != address(0), "NULL_ADDRESS");
         core = _core;
     }
 
@@ -19,15 +21,15 @@ contract bBTC is ERC20 {
         _;
     }
 
-    function mint(address account, uint amount) public onlyCore {
+    function mint(address account, uint amount) override external onlyCore {
         _mint(account, amount);
     }
 
-    function burn(address account, uint amount) public onlyCore {
+    function burn(address account, uint amount) override external onlyCore {
         _burn(account, amount);
     }
 
-    function getPricePerFullShare() public view returns (uint) {
+    function getPricePerFullShare() external view returns (uint) {
         return ICore(core).getPricePerFullShare();
     }
 }

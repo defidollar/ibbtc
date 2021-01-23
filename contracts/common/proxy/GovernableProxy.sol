@@ -1,4 +1,4 @@
-pragma solidity 0.6.12;
+pragma solidity 0.6.11;
 
 contract GovernableProxy {
     bytes32 constant OWNER_SLOT = keccak256("proxy.owner");
@@ -31,7 +31,7 @@ contract GovernableProxy {
     /**
      * @dev Transfers ownership of the contract to a new account (`newOwner`).
      */
-    function transferOwnership(address newOwner) public onlyOwner {
+    function transferOwnership(address newOwner) external onlyOwner {
         _transferOwnership(newOwner);
     }
 

@@ -1,4 +1,4 @@
-pragma solidity 0.6.12;
+pragma solidity 0.6.11;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20, SafeMath} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
@@ -195,6 +195,7 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
     function portfolioValue() override external view returns (uint) {
         CurvePool memory pool;
         uint assets;
+        // We do not expect to have more than 3-4 pools, so this loop should be fine
         for (uint i = 0; i < numPools; i++) {
             pool = pools[i];
             assets = pool.sett.balanceOf(address(this))

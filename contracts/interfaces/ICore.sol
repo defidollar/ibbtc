@@ -1,4 +1,4 @@
-pragma solidity 0.6.12;
+pragma solidity 0.6.11;
 
 interface ICore {
     function mint(uint btc) external returns (uint);

@@ -1,4 +1,4 @@
-pragma solidity 0.6.12;
+pragma solidity 0.6.11;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20, SafeMath} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
@@ -69,7 +69,7 @@ contract Core is GovernableProxy, Initializable, ICore {
     /* ##### View ##### */
 
     function getPricePerFullShare() override public view returns (uint) {
-        uint _totalSupply = bBTC.totalSupply();
+        uint _totalSupply = IERC20(address(bBTC)).totalSupply();
         if (_totalSupply > 0) {
             return totalSystemAssets().mul(1e18).div(_totalSupply);
         }

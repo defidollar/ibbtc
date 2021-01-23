@@ -1,4 +1,4 @@
-pragma solidity 0.6.12;
+pragma solidity 0.6.11;
 
 interface IERCProxy {
     function proxyType() external pure returns (uint proxyTypeId);
