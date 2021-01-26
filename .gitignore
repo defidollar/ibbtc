@@ -1,6 +1,7 @@
 node_modules
 sett.sol
 *.env
+tenderly.yaml
 
 #Hardhat files
 cache

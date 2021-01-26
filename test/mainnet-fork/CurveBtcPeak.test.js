@@ -9,42 +9,45 @@ const PRECISION = BigNumber.from(10000)
 const ZERO = BigNumber.from(0)
 const _1e18 = ethers.constants.WeiPerEther
 
-describe("CurveBtcPeak", function() {
+describe.only('CurveBtcPeak', function() {
+    let curveBtcPeak, core, bBtc
+
     before('setup contracts', async function() {
         signers = await ethers.getSigners()
         alice = signers[0].address
         feeSink = signers[9].address
         artifacts = await deployer.setupMainnetContracts(feeSink)
+        ;({ curveBtcPeak, core, bBtc } = artifacts)
     })
 
-    it('mintWithCurveLP', async function() {
-        const { curveLPToken, curveBtcPeak, bBtc, sett, swap } = artifacts
-        const amount = BigNumber.from('1').mul(_1e18)
-        await deployer.getCrvRenWSBTC(curveLPToken, alice, amount)
+    it.only('modifyWhitelistedCurvePools', async function() {
+        const { curveBtcPeak } = artifacts
+        const pools = Object.keys(deployer.crvPools).map(k => deployer.crvPools[k])
+        await curveBtcPeak.modifyWhitelistedCurvePools(pools)
+        expect((await curveBtcPeak.numPools()).toString()).to.eq('3')
+        for (let i = 0; i < 3; i++) {
+            const pool = await curveBtcPeak.pools(i)
+            expect(pool.lpToken).to.eq(pools[i].lpToken)
+            expect(pool.swap).to.eq(pools[i].swap)
+            expect(pool.sett).to.eq(pools[i].sett)
+        }
+    })
 
-        virtualPrice = await swap.get_virtual_price() // being used across tests
-        const [ pricePerFullShare, settCrvLPBal ] = await Promise.all([
-            sett.getPricePerFullShare(),
-            curveLPToken.balanceOf(sett.address)
-        ])
-
-        await curveLPToken.approve(artifacts.curveBtcPeak.address, amount)
-        await curveBtcPeak.mintWithCurveLP(0, amount)
-
-        // 10% Curve LP tokens, 90% in sett vault
-        const crvLPToSett = amount.mul(BigNumber.from('9')).div(BigNumber.from('10'))
-        const bBtcMinted = amount.mul(virtualPrice).div(_1e18).sub(1) // round-down
-        const aliceBbtc = bBtcMinted.mul(mintFeeFactor).div(PRECISION) // mint fee
-        await assertions([
-            ZERO, // curveLPToken.balanceOf(alice)
-            ZERO, // sett.balanceOf(alice)
-            aliceBbtc, // bBtc.balanceOf(alice)
-            amount.div(10), // curveLPToken.balanceOf(curveBtcPeak.address)
-            crvLPToSett.mul(_1e18).div(pricePerFullShare), // sett.balanceOf(curveBtcPeak.address)
-            bBtcMinted.sub(aliceBbtc) //bBtc.balanceOf(curveBtcPeak.address)
-        ])
-        expect(crvLPToSett.add(settCrvLPBal)).to.eq(await curveLPToken.balanceOf(sett.address))
+    it.only('mint with sbtc', async function() {
+        const amount = _1e18.mul(9)
+        await testMintWithCurveLP(0, 'sbtc', amount)
     });
+
+    it.only('mint with ren', async function() {
+        const amount = _1e18.mul(7)
+        await testMintWithCurveLP(1, 'ren', amount)
+    });
+
+    it.only('mint with tbtc', async function() {
+        const amount = _1e18.mul(4)
+        await testMintWithCurveLP(2, 'tbtc', amount)
+    });
+
 
     it('redeemInCurveLP', async function() {
         const { curveLPToken, curveBtcPeak, bBtc, sett, core } = artifacts
@@ -62,9 +65,11 @@ describe("CurveBtcPeak", function() {
         aliceCrvBal = redeemed
             .mul(await core.getPricePerFullShare())
             .div(virtualPrice)
-
+        console.log('yoyo 1')
         await bBtc.approve(curveBtcPeak.address, amount)
+        console.log('yoyo 2')
         await curveBtcPeak.redeemInCurveLP(0 /* poolId */, amount)
+        console.log('yoyo 3')
 
         await assertions([
             aliceCrvBal, // curveLPToken.balanceOf(alice)
@@ -137,8 +142,42 @@ describe("CurveBtcPeak", function() {
         ])
     });
 
-    async function assertions([aliceCrvLP, aliceSettLP, alicebtc, peakCrvLP, peakSettLP, peakbtc]) {
-        const { curveLPToken, curveBtcPeak, bBtc, sett } = artifacts
+    async function testMintWithCurveLP(poolId, pool, amount) {
+        const [ curveLPToken, swap, sett ] = await deployer.getPoolContracts(pool, curveBtcPeak.address)
+        await deployer.mintCrvPoolToken(pool, alice, amount)
+        const [ virtualPrice, _pool, settTotalSupply, pricePerFullShare, settCrvLPBal, aliceBbtcBal, peakBbtcBal ] = await Promise.all([
+            swap.get_virtual_price(),
+            sett.balance(),
+            sett.totalSupply(),
+            core.getPricePerFullShare(),
+            curveLPToken.balanceOf(sett.address),
+            bBtc.balanceOf(alice),
+            bBtc.balanceOf(curveBtcPeak.address)
+        ])
+
+        await curveLPToken.approve(artifacts.curveBtcPeak.address, amount)
+        await curveBtcPeak.mintWithCurveLP(poolId, amount)
+
+        // 10% Curve LP tokens, 90% in sett vault
+        const crvLPToSett = amount.mul(9).div(10)
+        const bBtcMinted = amount.mul(virtualPrice).div(pricePerFullShare).sub(1) // round-down
+        const aliceBbtc = bBtcMinted.mul(mintFeeFactor).div(PRECISION) // mint fee
+        await assertions(
+            curveLPToken,
+            sett,
+            [
+                ZERO, // curveLPToken.balanceOf(alice)
+                ZERO, // sett.balanceOf(alice)
+                aliceBbtcBal.add(aliceBbtc), // bBtc.balanceOf(alice)
+                amount.div(10), // curveLPToken.balanceOf(curveBtcPeak.address)
+                crvLPToSett.mul(settTotalSupply).div(_pool), // sett.balanceOf(curveBtcPeak.address)
+                peakBbtcBal.add(bBtcMinted).sub(aliceBbtc) // bBtc.balanceOf(curveBtcPeak.address)
+            ]
+        )
+        expect(crvLPToSett.add(settCrvLPBal)).to.eq(await curveLPToken.balanceOf(sett.address))
+    }
+
+    async function assertions(curveLPToken, sett, [ aliceCrvLP, aliceSettLP, alicebtc, peakCrvLP, peakSettLP, peakbtc ]) {
         const vals = await Promise.all([
             curveLPToken.balanceOf(alice),
             sett.balanceOf(alice),
@@ -155,3 +194,7 @@ describe("CurveBtcPeak", function() {
         expect(peakbtc).to.eq(vals[5])
     }
 });
+
+function getRandomInt(max) {
+    return Math.floor(Math.random() * Math.floor(max));
+}

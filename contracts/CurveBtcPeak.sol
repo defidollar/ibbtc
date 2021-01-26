@@ -1,4 +1,5 @@
 pragma solidity 0.6.11;
+pragma experimental ABIEncoderV2;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20, SafeMath} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
@@ -30,7 +31,7 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
         ISwap swap;
         ISett sett;
     }
-    mapping(uint => CurvePool) pools;
+    mapping(uint => CurvePool) public pools;
 
     uint public min;
     uint public redeemFeeFactor;
@@ -42,7 +43,6 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
 
     event Mint(address account, uint amount);
     event Redeem(address account, uint amount);
-    event PoolWhitelisted(address lpToken, address swap, address sett);
     event FeeCollected(uint amount);
 
     /**
@@ -211,20 +211,24 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
 
     /* ##### Admin ##### */
 
-    function whitelistCurvePool(
-        address lpToken,
-        address swap,
-        address sett
+    function modifyWhitelistedCurvePools(
+        CurvePool[] calldata _pools
     )
         external
         onlyOwner
     {
-        require(
-            lpToken != address(0) && swap != address(0) && sett != address(0),
-            "NULL_ADDRESS"
-        );
-        pools[numPools++] = CurvePool(IERC20(lpToken), ISwap(swap), ISett(sett));
-        emit PoolWhitelisted(lpToken, swap, sett);
+        numPools = _pools.length;
+        CurvePool memory pool;
+        for (uint i = 0; i < numPools; i++) {
+            pool = _pools[i];
+            require(
+                address(pool.lpToken) != address(0)
+                && address(pool.swap) != address(0)
+                && address(pool.sett) != address(0),
+                "NULL_ADDRESS"
+            );
+            pools[i] = CurvePool(pool.lpToken, pool.swap, pool.sett);
+        }
     }
 
     /**
