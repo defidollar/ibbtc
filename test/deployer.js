@@ -54,7 +54,7 @@ async function setupMainnetContracts(feeSink) {
     ]))
     await Promise.all([
         core.whitelistPeak(curveBtcPeak.address),
-        curveBtcPeak.modifyConfig(1000, 9990, 9990, feeSink)
+        curveBtcPeak.modifyConfig(6000, 9990, 9990, feeSink)
     ])
     // required for sett contracts whitelist
     await web3.eth.sendTransaction({ to: badgerDevMultisig, value: web3.utils.toWei('1'), from: (await ethers.getSigners())[0].address })

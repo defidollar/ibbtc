@@ -32,3 +32,7 @@ jobs:
       run: npm run compile
     - name: Run Tests
       run: npm t
+    - name: Run mainnet fork tests
+      env:
+        ALCHEMY: ${{ secrets.ALCHEMY }}
+      run: npm run test:mainnet-fork
