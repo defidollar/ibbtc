@@ -211,6 +211,9 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
 
     /* ##### Admin ##### */
 
+    /**
+    * @notice Manage whitelisted curve pools and their respective sett vaults
+    */
     function modifyWhitelistedCurvePools(
         CurvePool[] calldata _pools
     )

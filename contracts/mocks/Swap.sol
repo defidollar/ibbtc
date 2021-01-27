@@ -7,6 +7,3 @@ contract Swap is ISwap {
         return 1e18;
     }
 }
-
-
-

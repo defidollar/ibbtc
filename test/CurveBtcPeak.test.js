@@ -79,11 +79,9 @@ describe("CurveBtcPeak", function() {
     })
 
     it('redeemInCurveLP', async function() {
-        const { curveLPToken, curveBtcPeak, bBtc, sett } = artifacts
+        const { curveLPToken, curveBtcPeak, bBtc } = artifacts
 
-        const [ peakBbtc ] = await Promise.all([
-            bBtc.balanceOf(curveBtcPeak.address)
-        ])
+        const peakBbtc = await bBtc.balanceOf(curveBtcPeak.address)
 
         const amount = await bBtc.balanceOf(alice)
         const fee = amount.sub(amount.mul(redeemFeeFactor).div(PRECISION))
@@ -94,5 +92,12 @@ describe("CurveBtcPeak", function() {
         expect(await bBtc.balanceOf(alice)).to.eq(ZERO);
         expect(await curveLPToken.balanceOf(alice)).to.eq(amount.mul(redeemFeeFactor).div(PRECISION));
         expect(peakBbtc.add(fee)).to.eq(await bBtc.balanceOf(curveBtcPeak.address))
+    })
+
+    it('collectAdminFee', async function() {
+        const { curveBtcPeak, bBtc } = artifacts
+        const peakBbtc = await bBtc.balanceOf(curveBtcPeak.address)
+        await curveBtcPeak.collectAdminFee()
+        expect(peakBbtc).to.eq(await bBtc.balanceOf(feeSink));
     })
 });

@@ -1,3 +1,4 @@
+const { expect } = require("chai");
 const { BigNumber } = ethers
 
 const blockNumber = 11685090
@@ -126,11 +127,13 @@ async function setupContracts(feeSink) {
     curveBtcPeak = await ethers.getContractAt('CurveBtcPeak', curveBtcPeak.address)
 
     const sett = await Sett.deploy(curveLPToken.address)
+    expect(await core.peaks(curveBtcPeak.address)).to.eq(0) // Extinct
     await Promise.all([
         core.whitelistPeak(curveBtcPeak.address),
         curveBtcPeak.modifyConfig(1000, 9990, 9990, feeSink),
         curveBtcPeak.modifyWhitelistedCurvePools([{ lpToken: curveLPToken.address, swap: swap.address, sett: sett.address }])
     ])
+    expect(await core.peaks(curveBtcPeak.address)).to.eq(1) // Active
     return { curveBtcPeak, curveLPToken, bBtc, sett, swap, core }
 }
 
