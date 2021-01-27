@@ -1,23 +1,31 @@
 # Badger BTC (bBTC)
 
-### Development
-1. Compile
+## Development
+
+### Compile
 ```
 npm run compile
 ```
 
-2. Unit Tests
+### Tests
+
+- Unit tests
 ```
-npm t
+npm run test:unit
 ```
 
-3. Mainnet fork tests
+- Mainnet fork tests
 ```
 export ALCHEMY=<API_KEY>
 npm run test:mainnet-fork
 ```
 
-4. Coverage
+- All
+```
+npm t
+```
+
+### Coverage
 ```
 npm run coverage
 ```
