@@ -31,4 +31,6 @@ jobs:
     - name: Compile contracts
       run: npm run compile
     - name: Run Tests
+      env:
+        ALCHEMY: ${{ secrets.ALCHEMY }}
       run: npm t

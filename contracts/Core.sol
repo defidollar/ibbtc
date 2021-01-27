@@ -19,13 +19,9 @@ contract Core is GovernableProxy, Initializable, ICore {
     using Math for uint;
 
     enum PeakState { Extinct, Active, Dormant }
-    struct Peak {
-        PeakState state;
-    }
 
-    mapping(address => Peak) public peaks;
-    address[] public peaksAddresses;
-
+    address[] public peakAddresses;
+    mapping(address => PeakState) public peaks;
     IbBTC public immutable bBTC;
 
     // END OF STORAGE VARIABLES
@@ -47,10 +43,11 @@ contract Core is GovernableProxy, Initializable, ICore {
     * @return bBtc Badger BTC that was minted
     */
     function mint(uint btc) override external returns(uint bBtc) {
-        require(peaks[msg.sender].state == PeakState.Active, "PEAK_INACTIVE");
+        require(peaks[msg.sender] == PeakState.Active, "PEAK_INACTIVE");
         // getPricePerFullShare can lose precision during division.
         // Dividing by a rounded-down value can round up the value, hence manually round it down.
         bBtc = btc.div(getPricePerFullShare()).sub(1);
+        require(bBtc > 0, "MINTING_0_bBTC");
         bBTC.mint(msg.sender, bBtc);
     }
 
@@ -61,7 +58,8 @@ contract Core is GovernableProxy, Initializable, ICore {
     * @return btc amount redeemed, scaled by 1e18
     */
     function redeem(uint bBtc) override external returns(uint btc) {
-        require(peaks[msg.sender].state != PeakState.Extinct, "PEAK_EXTINCT");
+        require(bBtc > 0, "REDEEMING_0_bBTC");
+        require(peaks[msg.sender] != PeakState.Extinct, "PEAK_EXTINCT");
         btc = bBtc.mul(getPricePerFullShare());
         bBTC.burn(msg.sender, bBtc);
     }
@@ -76,14 +74,15 @@ contract Core is GovernableProxy, Initializable, ICore {
         return 1e18;
     }
 
-    function totalSystemAssets() public view returns (uint _totalAssets) {
-        for (uint i = 0; i < peaksAddresses.length; i++) {
-            Peak memory peak = peaks[peaksAddresses[i]];
-            if (peak.state == PeakState.Extinct) {
+    function totalSystemAssets() public view returns (uint totalAssets) {
+        address[] memory _peakAddresses = peakAddresses;
+        uint numPeaks = _peakAddresses.length;
+        for (uint i = 0; i < numPeaks; i++) {
+            if (peaks[_peakAddresses[i]] == PeakState.Extinct) {
                 continue;
             }
-            _totalAssets = _totalAssets.add(
-                IPeak(peaksAddresses[i]).portfolioValue()
+            totalAssets = totalAssets.add(
+                IPeak(_peakAddresses[i]).portfolioValue()
             );
         }
     }
@@ -99,11 +98,12 @@ contract Core is GovernableProxy, Initializable, ICore {
         onlyOwner
     {
         require(
-            peaks[peak].state == PeakState.Extinct,
-            "Peak already exists"
+            peaks[peak] == PeakState.Extinct,
+            "DUPLICATE_PEAK"
         );
-        peaksAddresses.push(peak);
-        peaks[peak] = Peak(PeakState.Active);
+        IPeak(peak).portfolioValue(); // sanity check
+        peakAddresses.push(peak);
+        peaks[peak] = PeakState.Active;
         emit PeakWhitelisted(peak);
     }
 
@@ -115,9 +115,9 @@ contract Core is GovernableProxy, Initializable, ICore {
         onlyOwner
     {
         require(
-            peaks[peak].state != PeakState.Extinct,
+            peaks[peak] != PeakState.Extinct,
             "Peak is extinct"
         );
-        peaks[peak].state = state;
+        peaks[peak] = state;
     }
 }
