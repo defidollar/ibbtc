@@ -5,8 +5,10 @@ const blockNumber = 11685090
 const badgerDevMultisig = '0xB65cef03b9B89f99517643226d76e286ee999e77'
 const wBTC = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599'
 const wBTCWhale = '0x875abe6f1e2aba07bed4a3234d8555a0d7656d12'
+const signer = ethers.provider.getSigner(wBTCWhale)
 // whale has 903 wbtc at blockNumber = 11685090
 const wbtcWhaleBalance = BigNumber.from(150).mul(1e8) // wbtc has 8 decimals
+const _1e18 = ethers.constants.WeiPerEther
 
 const crvPools = {
     sbtc: {
@@ -97,7 +99,6 @@ async function mintCrvPoolToken(pool, account, a) {
             _deposit = await ethers.getContractAt('tbtcDeposit', '0xaa82ca713D94bBA7A89CEAB55314F9EfFEdDc78c')
             _amounts = [0, 0, amount, 0] // [ tbtc, ren, wbtc, sbtc ]
     }
-    const signer = ethers.provider.getSigner(wBTCWhale)
     await _wBTC.connect(signer).approve(_deposit.address, amount)
     await _deposit.connect(signer).add_liquidity(_amounts, 0)
     await _lpToken.connect(signer).transfer(account, a)
