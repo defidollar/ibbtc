@@ -34,70 +34,47 @@ describe('CurveBtcPeak', function() {
         }
     })
 
-    it('mint with crvRenWSBTC', async function() {
-        const amount = _1e18.mul(10)
+    it('mint with bcrvRenWSBTC', async function() {
+        let amount = _1e18.mul(10)
         await deployer.mintCrvPoolToken('sbtc', alice, amount)
-        await testMintWithCurveLP(0, amount, await getCrvPoolContracts('sbtc'))
+        const contracts = await deployer.getPoolContracts('sbtc')
+        const [ lp, _, sett ] = contracts
+        await lp.approve(sett.address, amount)
+        await sett.deposit(amount)
+        await testMint(0, await sett.balanceOf(alice), contracts)
+
     });
 
-    it('mint with crvRenWBTC', async function() {
+    it('mint with bcrvRenWBTC', async function() {
         const amount = _1e18.mul(10)
         await deployer.mintCrvPoolToken('ren', alice, amount)
-        await testMintWithCurveLP(1, amount, await getCrvPoolContracts('ren'))
+        const contracts = await deployer.getPoolContracts('ren')
+        const [ lp, _, sett ] = contracts
+        await lp.approve(sett.address, amount)
+        await sett.deposit(amount)
+        await testMint(1, await sett.balanceOf(alice), contracts)
     });
 
-    it('mint with tbtc/sbtcCrv', async function() {
+    it('mint with b-tbtc/sbtcCrv', async function() {
         const amount = _1e18.mul(10)
         await deployer.mintCrvPoolToken('tbtc', alice, amount)
-        await testMintWithCurveLP(2, amount, await getCrvPoolContracts('tbtc'))
-    });
-
-    it('redeem in crvRenWSBTC', async function() {
-        const amount = _1e18.mul(5) // will not require a sett withdrawal
-        await testRedeemInCurveLP(0, 'sbtc', amount)
-    });
-
-    it('redeem in crvRenWBTC', async function() {
-        const amount = _1e18.mul(4) // will not require a sett withdrawal
-        await testRedeemInCurveLP(1, 'ren', amount)
-    });
-
-    it('redeem in tbtc/sbtcCrv', async function() {
-        const amount = _1e18.mul(3) // will not require a sett withdrawal
-        await testRedeemInCurveLP(2, 'tbtc', amount)
-    });
-
-    it('redeem in crvRenWSBTC-sett', async function() {
-        const amount = _1e18.mul(3)
-        await testRedeemInSettLP(0, 'sbtc', amount)
-    });
-
-    it('redeem in crvRenWBTC-sett', async function() {
-        const amount = _1e18.mul(3)
-        await testRedeemInSettLP(1, 'ren', amount)
-    });
-
-    it('redeem in tbtc/sbtcCrv-sett', async function() {
-        const amount = _1e18.mul(3)
-        await testRedeemInSettLP(2, 'tbtc', amount)
-    });
-
-    it('mint with crvRenWSBTC-sett', async function() {
-        const contracts = await deployer.getPoolContracts('sbtc')
-        const amount = await contracts[2].balanceOf(alice) // sett
-        await testMintWithSettLP(0, amount, contracts)
-    });
-
-    it('mint with crvRenWBTC-sett', async function() {
-        const contracts = await deployer.getPoolContracts('ren')
-        const amount = await contracts[2].balanceOf(alice) // sett
-        await testMintWithSettLP(1, amount, contracts)
-    });
-
-    it('mint with tbtc/sbtcCrv-sett', async function() {
         const contracts = await deployer.getPoolContracts('tbtc')
-        const amount = await contracts[2].balanceOf(alice) // sett
-        await testMintWithSettLP(2, amount, contracts)
+        const [ lp, _, sett ] = contracts
+        await lp.approve(sett.address, amount)
+        await sett.deposit(amount)
+        await testMint(2, await sett.balanceOf(alice), contracts)
+    });
+
+    it('redeem in bcrvRenWSBTC', async function() {
+        await testRedeem(0, 'sbtc', _1e18.mul(5))
+    });
+
+    it('redeem in bcrvRenWBTC', async function() {
+        await testRedeem(1, 'ren', _1e18.mul(5))
+    });
+
+    it('redeem in b-tbtc/sbtcCrv', async function() {
+        await testRedeem(2, 'tbtc', _1e18.mul(5))
     });
 
     async function testMintWithCurveLP(poolId, amount, [ curveLPToken, swap, sett ]) {
@@ -165,7 +142,7 @@ describe('CurveBtcPeak', function() {
         )
     }
 
-    async function testRedeemInSettLP(poolId, pool, amount) {
+    async function testRedeem(poolId, pool, amount) {
         const [ curveLPToken, swap, sett ] = await deployer.getPoolContracts(pool)
         const [ virtualPrice, pricePerFullShare, aliceBbtcBal, aliceCrvBal, peakCrvLPBal, peakSettBal, peakBbtcBal ] = await Promise.all([
             swap.get_virtual_price(),
@@ -181,7 +158,7 @@ describe('CurveBtcPeak', function() {
         const expected = bBtcAfterFee.mul(await core.getPricePerFullShare()).div(settToBtc)
 
         await bBtc.approve(curveBtcPeak.address, amount)
-        await curveBtcPeak.redeemInSettLP(poolId, amount)
+        await curveBtcPeak.redeem(poolId, amount)
 
         await assertions(
             curveLPToken,
@@ -197,7 +174,7 @@ describe('CurveBtcPeak', function() {
         )
     }
 
-    async function testMintWithSettLP(poolId, amount, [ curveLPToken, swap, sett ]) {
+    async function testMint(poolId, amount, [ curveLPToken, swap, sett ]) {
         const [
             pricePerFullShare,
             bBTCpricePerFullShare,
@@ -225,7 +202,7 @@ describe('CurveBtcPeak', function() {
         const fee = mintedBbtc.sub(expectedBbtc)
 
         await sett.approve(curveBtcPeak.address, amount)
-        await curveBtcPeak.mintWithSettLP(poolId, amount)
+        await curveBtcPeak.mint(poolId, amount)
 
         await assertions(
             curveLPToken,
