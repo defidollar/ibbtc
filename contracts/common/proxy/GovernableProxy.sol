@@ -19,7 +19,7 @@ contract GovernableProxy {
         }
     }
 
-    modifier onlyOwner() {
+    modifier onlyGovernance() {
         require(isOwner(), "NOT_OWNER");
         _;
     }
@@ -31,7 +31,7 @@ contract GovernableProxy {
     /**
      * @dev Transfers ownership of the contract to a new account (`newOwner`).
      */
-    function transferOwnership(address newOwner) external onlyOwner {
+    function transferOwnership(address newOwner) external onlyGovernance {
         _transferOwnership(newOwner);
     }
 

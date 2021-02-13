@@ -8,12 +8,9 @@ import {IPeak} from "./interfaces/IPeak.sol";
 import {IbBTC} from "./interfaces/IbBTC.sol";
 import {ICore} from "./interfaces/ICore.sol";
 
-import {Initializable} from "./common/proxy/Initializable.sol";
 import {GovernableProxy} from "./common/proxy/GovernableProxy.sol";
 
-import "hardhat/console.sol";  // @todo remove
-
-contract Core is GovernableProxy, Initializable, ICore {
+contract Core is GovernableProxy, ICore {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
     using Math for uint;
@@ -23,6 +20,8 @@ contract Core is GovernableProxy, Initializable, ICore {
     address[] public peakAddresses;
     mapping(address => PeakState) public peaks;
     IbBTC public immutable bBTC;
+
+    uint256[50] private __gap;
 
     // END OF STORAGE VARIABLES
 
@@ -95,7 +94,7 @@ contract Core is GovernableProxy, Initializable, ICore {
     */
     function whitelistPeak(address peak)
         external
-        onlyOwner
+        onlyGovernance
     {
         require(
             peaks[peak] == PeakState.Extinct,
@@ -112,7 +111,7 @@ contract Core is GovernableProxy, Initializable, ICore {
     */
     function setPeakStatus(address peak, PeakState state)
         external
-        onlyOwner
+        onlyGovernance
     {
         require(
             peaks[peak] != PeakState.Extinct,

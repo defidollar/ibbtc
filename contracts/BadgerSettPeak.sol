@@ -10,12 +10,9 @@ import {ICore} from "./interfaces/ICore.sol";
 import {ISett} from "./interfaces/ISett.sol";
 import {IPeak} from "./interfaces/IPeak.sol";
 
-import {Initializable} from "./common/proxy/Initializable.sol";
-import {GovernableProxy} from "./common/proxy/GovernableProxy.sol";
+import {AccessControlDefended} from "./common/AccessControlDefended.sol";
 
-import "hardhat/console.sol"; // @todo remove
-
-contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
+contract BadgerSettPeak is AccessControlDefended, IPeak {
     using SafeERC20 for IERC20;
     using SafeERC20 for ISett;
     using SafeMath for uint;
@@ -62,25 +59,16 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
     */
     function mint(uint poolId, uint inAmount)
         external
+        defend
+        blockLocked
         returns(uint outAmount)
     {
         CurvePool memory pool = pools[poolId];
         // not dividing by 1e18 allows us a gas optimization in core.mint
-        outAmount = _mint(inAmount.mul(settToBtc(pool.swap, pool.sett)));
+        uint btc = inAmount.mul(settToBtc(pool.swap, pool.sett));
+        outAmount = core.mint(btc).mul(mintFeeFactor).div(PRECISION);
         // will revert if user passed an unsupported poolId
         pool.sett.safeTransferFrom(msg.sender, address(this), inAmount);
-    }
-
-    /**
-    * @dev Mints bBTC to the user's account after charging mint fee
-    * @param btc BTC supplied, scaled by 1e18
-    * @return outAmount Amount of bBTC minted to user's account
-    */
-    function _mint(uint btc)
-        internal
-        returns(uint outAmount)
-    {
-        outAmount = core.mint(btc).mul(mintFeeFactor).div(PRECISION);
         bBtc.safeTransfer(msg.sender, outAmount);
         emit Mint(msg.sender, outAmount);
     }
@@ -94,6 +82,8 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
     */
     function redeem(uint poolId, uint inAmount)
         external
+        defend
+        blockLocked
         returns (uint outAmount)
     {
         bBtc.safeTransferFrom(msg.sender, address(this), inAmount);
@@ -144,7 +134,7 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
         CurvePool[] calldata _pools
     )
         external
-        onlyOwner
+        onlyGovernance
     {
         numPools = _pools.length;
         CurvePool memory pool;
@@ -174,7 +164,7 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
         address _feeSink
     )
         external
-        onlyOwner
+        onlyGovernance
     {
         require(
             _min <= PRECISION
@@ -187,5 +177,13 @@ contract CurveBtcPeak is GovernableProxy, Initializable, IPeak {
         mintFeeFactor = _mintFeeFactor;
         redeemFeeFactor = _redeemFeeFactor;
         feeSink = _feeSink;
+    }
+
+    function _defend() internal view returns (bool) {
+        require(approved[msg.sender] || msg.sender == tx.origin, "Access denied for caller");
+    }
+
+    function _blockLocked() internal view {
+        require(blockLock[msg.sender] < block.number, "blockLocked");
     }
 }

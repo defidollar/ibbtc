@@ -38,9 +38,9 @@ async function setupMainnetContracts(feeSink) {
             }
         }]
     })
-    const [ UpgradableProxy, CurveBtcPeak, Core, bBTC ] = await Promise.all([
+    const [ UpgradableProxy, BadgerSettPeak, Core, bBTC ] = await Promise.all([
         ethers.getContractFactory("UpgradableProxy"),
-        ethers.getContractFactory('CurveBtcPeak'),
+        ethers.getContractFactory('BadgerSettPeak'),
         ethers.getContractFactory('Core'),
         ethers.getContractFactory('bBTC'),
     ])
@@ -50,10 +50,10 @@ async function setupMainnetContracts(feeSink) {
     ])
     const bBtc = await bBTC.deploy(core.address)
     await core.updateImplementation((await Core.deploy(bBtc.address)).address)
-    await curveBtcPeak.updateImplementation((await CurveBtcPeak.deploy(core.address, bBtc.address)).address)
+    await curveBtcPeak.updateImplementation((await BadgerSettPeak.deploy(core.address, bBtc.address)).address)
     ;([ core, curveBtcPeak ] = await Promise.all([
         ethers.getContractAt('Core', core.address),
-        ethers.getContractAt('CurveBtcPeak', curveBtcPeak.address),
+        ethers.getContractAt('BadgerSettPeak', curveBtcPeak.address),
     ]))
     await Promise.all([
         core.whitelistPeak(curveBtcPeak.address),
@@ -105,9 +105,9 @@ async function mintCrvPoolToken(pool, account, a) {
 }
 
 async function setupContracts(feeSink) {
-    const [ UpgradableProxy, CurveBtcPeak, Core, bBTC, CurveLPToken, Swap, Sett ] = await Promise.all([
+    const [ UpgradableProxy, BadgerSettPeak, Core, bBTC, CurveLPToken, Swap, Sett ] = await Promise.all([
         ethers.getContractFactory("UpgradableProxy"),
-        ethers.getContractFactory("CurveBtcPeak"),
+        ethers.getContractFactory("BadgerSettPeak"),
         ethers.getContractFactory("Core"),
         ethers.getContractFactory("bBTC"),
         ethers.getContractFactory("CurveLPToken"),
@@ -124,8 +124,8 @@ async function setupContracts(feeSink) {
     core = await ethers.getContractAt('Core', core.address)
 
     let curveBtcPeak = await UpgradableProxy.deploy()
-    await curveBtcPeak.updateImplementation((await CurveBtcPeak.deploy(core.address, bBtc.address)).address)
-    curveBtcPeak = await ethers.getContractAt('CurveBtcPeak', curveBtcPeak.address)
+    await curveBtcPeak.updateImplementation((await BadgerSettPeak.deploy(core.address, bBtc.address)).address)
+    curveBtcPeak = await ethers.getContractAt('BadgerSettPeak', curveBtcPeak.address)
 
     const sett = await Sett.deploy(curveLPToken.address)
     expect(await core.peaks(curveBtcPeak.address)).to.eq(0) // Extinct

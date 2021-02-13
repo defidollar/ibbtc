@@ -12,9 +12,9 @@ npm run coverage
 
 - [bBTC.sol](./contracts/bBTC.sol) is the interest-bearing bitcoin ERC20 token.
 
-- A `peak` refers to any third party integration in the protocol. The system is designed to support many such peaks which can be added or removed later and allow for custom logic specific to the peak. [CurveBtcPeak.sol](./contracts/CurveBtcPeak.sol) let's to mint/redeem bBTC with/in Badger Sett LP tokens. There is a configurable mint and redeem fee, charged in bBTC.
+- A `peak` refers to any third party integration in the protocol. The system is designed to support many such peaks which can be added or removed later and allow for custom logic specific to the peak. [BadgerSettPeak.sol](./contracts/BadgerSettPeak.sol) let's to mint/redeem bBTC with/in Badger Sett LP tokens. There is a configurable mint and redeem fee, charged in bBTC.
 
-- [Core.sol](./contracts/Core.sol) is responsible for actually minting/burning the bBTC tokens. `core.totalSystemAssets()` provides the summation of all LP tokens held in all peaks, denominated in bitcoin. For e.g. a Sett LP token held in CurveBtcPeak is priced as:
+- [Core.sol](./contracts/Core.sol) is responsible for actually minting/burning the bBTC tokens. `core.totalSystemAssets()` provides the summation of all LP tokens held in all peaks, denominated in bitcoin. For e.g. a Sett LP token held in BadgerSettPeak is priced as:
 ```
 function settToBtc(ISwap swap, ISett sett) public view returns (uint) {
     return sett.getPricePerFullShare().mul(swap.get_virtual_price()).div(1e18);

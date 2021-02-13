@@ -10,7 +10,7 @@ const PRECISION = BigNumber.from(10000)
 const ZERO = BigNumber.from(0)
 const _1e18 = ethers.constants.WeiPerEther
 
-describe('CurveBtcPeak', function() {
+describe('BadgerSettPeak (fork)', function() {
     let curveBtcPeak, core, bBtc, crvPools = {}
 
     before('setup contracts', async function() {
