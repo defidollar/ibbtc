@@ -63,6 +63,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         blockLocked
         returns(uint outAmount)
     {
+        _lockForBlock(msg.sender);
         CurvePool memory pool = pools[poolId];
         // not dividing by 1e18 allows us a gas optimization in core.mint
         uint btc = inAmount.mul(settToBtc(pool.swap, pool.sett));
@@ -86,6 +87,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         blockLocked
         returns (uint outAmount)
     {
+        _lockForBlock(msg.sender);
         bBtc.safeTransferFrom(msg.sender, address(this), inAmount);
         uint btc = core.redeem(inAmount.mul(redeemFeeFactor).div(PRECISION));
         CurvePool memory pool = pools[poolId];
@@ -177,13 +179,5 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         mintFeeFactor = _mintFeeFactor;
         redeemFeeFactor = _redeemFeeFactor;
         feeSink = _feeSink;
-    }
-
-    function _defend() internal view returns (bool) {
-        require(approved[msg.sender] || msg.sender == tx.origin, "Access denied for caller");
-    }
-
-    function _blockLocked() internal view {
-        require(blockLock[msg.sender] < block.number, "blockLocked");
     }
 }

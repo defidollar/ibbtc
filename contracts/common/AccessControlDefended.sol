@@ -8,13 +8,17 @@ contract AccessControlDefended is GovernableProxy {
     uint256[50] private __gap;
 
     modifier defend() {
-        require(msg.sender == tx.origin || approved[msg.sender], "Access denied for caller");
+        require(msg.sender == tx.origin || approved[msg.sender], "ACCESS_DENIED");
         _;
     }
 
     modifier blockLocked() {
-        require(blockLock[msg.sender] < block.number, "blockLocked");
+        require(blockLock[msg.sender] < block.number, "BLOCK_LOCKED");
         _;
+    }
+
+    function _lockForBlock(address account) internal {
+        blockLock[account] = block.number;
     }
 
     function approveContractAccess(address account) external onlyGovernance {
