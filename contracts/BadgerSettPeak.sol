@@ -103,7 +103,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
     */
     function collectAdminFee() external {
         uint amount = bBtc.balanceOf(address(this));
-        if (amount > 0) {
+        if (amount > 0 && feeSink != address(0)) {
             bBtc.safeTransfer(feeSink, amount);
             emit FeeCollected(amount);
         }

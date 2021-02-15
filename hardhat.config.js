@@ -15,8 +15,10 @@ module.exports = {
     solidity: {
         version: '0.6.11',
     },
-    tenderly: {
-		username: 'atvanguard',
-		project: 'hardhat-debug'
-	}
+    etherscan: {
+        apiKey: `${process.env.ETHERSCAN || ''}`
+    },
+    mocha: {
+        timeout: 0
+    }
 }
