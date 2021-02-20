@@ -4,6 +4,10 @@ interface ISwap {
     function get_virtual_price() external view returns (uint);
 }
 
+interface ISaddleSwap {
+    function getVirtualPrice() external view returns (uint);
+}
+
 interface renDeposit {
     function add_liquidity(uint[2] calldata amounts, uint min_mint_amount) external returns (uint);
 }
