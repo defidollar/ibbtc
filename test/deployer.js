@@ -1,14 +1,12 @@
 const { expect } = require("chai");
 const { BigNumber } = ethers
 
-// const blockNumber = 11685090
 const blockNumber = 11892010
+const wbtcWhaleBalance = BigNumber.from(150).mul(1e8) // wbtc has 8 decimals
 const badgerDevMultisig = '0xB65cef03b9B89f99517643226d76e286ee999e77'
 const wBTC = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599'
 const wBTCWhale = '0x875abe6f1e2aba07bed4a3234d8555a0d7656d12'
 const signer = ethers.provider.getSigner(wBTCWhale)
-// whale has 903 wbtc at blockNumber = 11685090
-const wbtcWhaleBalance = BigNumber.from(150).mul(1e8) // wbtc has 8 decimals
 
 const crvPools = {
     sbtc: {
@@ -67,15 +65,12 @@ async function setupMainnetContracts(feeSink) {
 
 }
 
-async function getPoolContracts(pool, peak = null) {
+async function getPoolContracts(pool) {
     const contracts = await Promise.all([
         ethers.getContractAt('CurveLPToken', crvPools[pool].lpToken),
         ethers.getContractAt('Swap', crvPools[pool].swap),
         ethers.getContractAt('Sett', crvPools[pool].sett)
     ])
-    // if (peak) {
-    //     await contracts[2].connect(ethers.provider.getSigner(badgerDevMultisig)).approveContractAccess(peak)
-    // }
     return contracts
 }
 

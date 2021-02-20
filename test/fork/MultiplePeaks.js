@@ -73,8 +73,8 @@ describe('BadgerSettPeak + SaddlePeak (fork)', function() {
     it('mint with saddleTWRenSBTC', async function() {
         let amount = BigNumber.from(9).mul(BigNumber.from(10).pow(17)) // 0.9
         await deployer.impersonateAccount(saddleTWRenSBTCWhale)
-        await saddleTWRenSBTC.connect(ethers.provider.getSigner(saddleTWRenSBTCWhale)).transfer(alice, amount)
         // transfer from whale
+        await saddleTWRenSBTC.connect(ethers.provider.getSigner(saddleTWRenSBTCWhale)).transfer(alice, amount)
         await testMintWithCurveLP(0, amount, [ saddlePeak, saddleTWRenSBTC, saddleSwap ])
         bbtcMintedFromSaddle = await bBtc.balanceOf(alice)
     });
