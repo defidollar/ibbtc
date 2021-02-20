@@ -1,14 +1,14 @@
 const { expect } = require("chai");
 const { BigNumber } = ethers
 
-const blockNumber = 11685090
+// const blockNumber = 11685090
+const blockNumber = 11892010
 const badgerDevMultisig = '0xB65cef03b9B89f99517643226d76e286ee999e77'
 const wBTC = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599'
 const wBTCWhale = '0x875abe6f1e2aba07bed4a3234d8555a0d7656d12'
 const signer = ethers.provider.getSigner(wBTCWhale)
 // whale has 903 wbtc at blockNumber = 11685090
 const wbtcWhaleBalance = BigNumber.from(150).mul(1e8) // wbtc has 8 decimals
-const _1e18 = ethers.constants.WeiPerEther
 
 const crvPools = {
     sbtc: {
@@ -39,7 +39,7 @@ async function setupMainnetContracts(feeSink) {
         }]
     })
     const [ UpgradableProxy, BadgerSettPeak, Core, bBTC ] = await Promise.all([
-        ethers.getContractFactory("UpgradableProxy"),
+        ethers.getContractFactory('UpgradableProxy'),
         ethers.getContractFactory('BadgerSettPeak'),
         ethers.getContractFactory('Core'),
         ethers.getContractFactory('bBTC'),
@@ -57,7 +57,7 @@ async function setupMainnetContracts(feeSink) {
     ]))
     await Promise.all([
         core.whitelistPeak(curveBtcPeak.address),
-        curveBtcPeak.modifyConfig(6000, 9990, 9990, feeSink)
+        curveBtcPeak.modifyConfig(9990, 9990, feeSink)
     ])
     // required for sett contracts whitelist
     await web3.eth.sendTransaction({ to: badgerDevMultisig, value: web3.utils.toWei('1'), from: (await ethers.getSigners())[0].address })
@@ -67,15 +67,15 @@ async function setupMainnetContracts(feeSink) {
 
 }
 
-async function getPoolContracts(pool, curveBtcPeak = null) {
+async function getPoolContracts(pool, peak = null) {
     const contracts = await Promise.all([
         ethers.getContractAt('CurveLPToken', crvPools[pool].lpToken),
         ethers.getContractAt('Swap', crvPools[pool].swap),
         ethers.getContractAt('Sett', crvPools[pool].sett)
     ])
-    if (curveBtcPeak) {
-        await contracts[2].connect(ethers.provider.getSigner(badgerDevMultisig)).approveContractAccess(curveBtcPeak)
-    }
+    // if (peak) {
+    //     await contracts[2].connect(ethers.provider.getSigner(badgerDevMultisig)).approveContractAccess(peak)
+    // }
     return contracts
 }
 
@@ -131,7 +131,7 @@ async function setupContracts(feeSink) {
     expect(await core.peaks(curveBtcPeak.address)).to.eq(0) // Extinct
     await Promise.all([
         core.whitelistPeak(curveBtcPeak.address),
-        curveBtcPeak.modifyConfig(1000, 9990, 9990, feeSink),
+        curveBtcPeak.modifyConfig(9990, 9990, feeSink),
         curveBtcPeak.modifyWhitelistedCurvePools([{ lpToken: curveLPToken.address, swap: swap.address, sett: sett.address }])
     ])
     expect(await core.peaks(curveBtcPeak.address)).to.eq(1) // Active
@@ -150,5 +150,6 @@ module.exports = {
     setupMainnetContracts,
     getPoolContracts,
     mintCrvPoolToken,
+    impersonateAccount,
     crvPools
 }

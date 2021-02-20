@@ -5,14 +5,14 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20, SafeMath} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/math/Math.sol";
 
-import {ISwap} from "./interfaces/ISwap.sol";
-import {ICore} from "./interfaces/ICore.sol";
-import {ISett} from "./interfaces/ISett.sol";
-import {IPeak} from "./interfaces/IPeak.sol";
+import {ISaddleSwap as ISwap} from "../interfaces/ISwap.sol";
+import {ICore} from "../interfaces/ICore.sol";
+import {ISett} from "../interfaces/ISett.sol";
+import {IPeak} from "../interfaces/IPeak.sol";
 
-import {AccessControlDefended} from "./common/AccessControlDefended.sol";
+import {AccessControlDefended} from "../common/AccessControlDefended.sol";
 
-contract BadgerSettPeak is AccessControlDefended, IPeak {
+contract SaddlePeak is AccessControlDefended, IPeak {
     using SafeERC20 for IERC20;
     using SafeERC20 for ISett;
     using SafeMath for uint;
@@ -65,10 +65,10 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         _lockForBlock(msg.sender);
         CurvePool memory pool = pools[poolId];
         // not dividing by 1e18 allows us a gas optimization in core.mint
-        uint btc = inAmount.mul(settToBtc(pool.swap, pool.sett));
+        uint btc = inAmount.mul(pool.swap.getVirtualPrice());
         outAmount = core.mint(btc).mul(mintFeeFactor).div(PRECISION);
         // will revert if user passed an unsupported poolId
-        pool.sett.safeTransferFrom(msg.sender, address(this), inAmount);
+        pool.lpToken.safeTransferFrom(msg.sender, address(this), inAmount);
         bBtc.safeTransfer(msg.sender, outAmount);
         emit Mint(msg.sender, outAmount);
     }
@@ -90,10 +90,9 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         bBtc.safeTransferFrom(msg.sender, address(this), inAmount);
         uint btc = core.redeem(inAmount.mul(redeemFeeFactor).div(PRECISION));
         CurvePool memory pool = pools[poolId];
-        outAmount = btc.div(settToBtc(pool.swap, pool.sett));
+        outAmount = btc.div(pool.swap.getVirtualPrice());
         // will revert if the contract has insufficient funds.
-        // This opens up a couple front-running vectors. @todo Discuss with Badger team about possibilities.
-        pool.sett.safeTransfer(msg.sender, outAmount);
+        pool.lpToken.safeTransfer(msg.sender, outAmount);
         emit Redeem(msg.sender, inAmount);
     }
 
@@ -108,18 +107,14 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         }
     }
 
-    function settToBtc(ISwap swap, ISett sett) public view returns (uint) {
-        return sett.getPricePerFullShare().mul(swap.get_virtual_price()).div(1e18);
-    }
-
     function portfolioValue() override external view returns (uint) {
         CurvePool memory pool;
         uint assets;
         // We do not expect to have more than 3-4 pools, so this loop should be fine
         for (uint i = 0; i < numPools; i++) {
             pool = pools[i];
-            assets = pool.sett.balanceOf(address(this))
-                .mul(settToBtc(pool.swap, pool.sett))
+            assets = pool.lpToken.balanceOf(address(this))
+                .mul(pool.swap.getVirtualPrice())
                 .div(1e18)
                 .add(assets);
         }
@@ -144,7 +139,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
             require(
                 address(pool.lpToken) != address(0)
                 && address(pool.swap) != address(0)
-                && address(pool.sett) != address(0),
+                && address(pool.sett) == address(0), // "Sett not yet supported for SaddlePeak"
                 "NULL_ADDRESS"
             );
             pools[i] = CurvePool(pool.lpToken, pool.swap, pool.sett);
