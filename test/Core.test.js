@@ -3,7 +3,7 @@ const { expect } = require("chai");
 const deployer = require('./deployer')
 
 describe('Core', function() {
-    let curveBtcPeak, core
+    let badgerPeak, core
 
     before('setup contracts', async function() {
         signers = await ethers.getSigners()
@@ -11,12 +11,12 @@ describe('Core', function() {
         feeSink = signers[9].address
         dummyPeak = signers[8]
         artifacts = await deployer.setupContracts(feeSink)
-        ;({ curveBtcPeak, bBtc, core } = artifacts)
+        ;({ badgerPeak, bBtc, core } = artifacts)
     })
 
     it('can\'t add duplicate peak', async function() {
         try {
-            await core.whitelistPeak(curveBtcPeak.address)
+            await core.whitelistPeak(badgerPeak.address)
         }  catch (e) {
             expect(e.message).to.eq('VM Exception while processing transaction: revert DUPLICATE_PEAK')
         }
@@ -40,19 +40,19 @@ describe('Core', function() {
 
     it('setPeakStatus fails from non-admin account', async function() {
         try {
-            await core.connect(signers[1]).setPeakStatus(curveBtcPeak.address, 2 /* Dormant */)
+            await core.connect(signers[1]).setPeakStatus(badgerPeak.address, 2 /* Dormant */)
         } catch (e) {
             expect(e.message).to.eq('VM Exception while processing transaction: revert NOT_OWNER')
         }
     });
 
     it('setPeakStatus', async function() {
-        expect(await core.peaks(curveBtcPeak.address)).to.eq(1)
-        await core.setPeakStatus(curveBtcPeak.address, 1 /* Extinct */)
-        expect(await core.peaks(curveBtcPeak.address)).to.eq(1)
-        await core.setPeakStatus(curveBtcPeak.address, 2 /* Dormant */)
-        expect(await core.peaks(curveBtcPeak.address)).to.eq(2)
-        await core.setPeakStatus(curveBtcPeak.address, 0 /* Active */)
-        expect(await core.peaks(curveBtcPeak.address)).to.eq(0)
+        expect(await core.peaks(badgerPeak.address)).to.eq(1)
+        await core.setPeakStatus(badgerPeak.address, 1 /* Extinct */)
+        expect(await core.peaks(badgerPeak.address)).to.eq(1)
+        await core.setPeakStatus(badgerPeak.address, 2 /* Dormant */)
+        expect(await core.peaks(badgerPeak.address)).to.eq(2)
+        await core.setPeakStatus(badgerPeak.address, 0 /* Active */)
+        expect(await core.peaks(badgerPeak.address)).to.eq(0)
     })
 })

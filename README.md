@@ -1,14 +1,4 @@
-# Badger BTC (bBTC)
-
-## Development
-Needs [Alchemy](alchemyapi.io) API key. `export ALCHEMY=<API_KEY>`
-```
-npm run compile
-npm t
-npm run coverage
-```
-
-## Notes
+# Interest-bearing Badger BTC (ibBTC)
 
 - [bBTC.sol](./contracts/bBTC.sol) is the interest-bearing bitcoin ERC20 token.
 
@@ -31,6 +21,23 @@ function getPricePerFullShare() override public view returns (uint) {
 }
 ```
 `getPricePerFullShare()` is used to determine the bBTC:bSett exchange rate.
+
+## Development
+Needs [Alchemy](alchemyapi.io) API key. `export ALCHEMY=<API_KEY>`
+```
+npm run compile
+npm t
+npm run coverage
+```
+
+## Deployments
+
+Local
+```
+npx hardhat node
+npx hardhat run scripts/deploy.js --network local
+```
+Addresses will be written to `deployments/local.json`.
 
 
 

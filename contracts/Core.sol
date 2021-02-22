@@ -7,7 +7,6 @@ import {Math} from "@openzeppelin/contracts/math/Math.sol";
 import {IPeak} from "./interfaces/IPeak.sol";
 import {IbBTC} from "./interfaces/IbBTC.sol";
 import {ICore} from "./interfaces/ICore.sol";
-
 import {GovernableProxy} from "./common/proxy/GovernableProxy.sol";
 
 contract Core is GovernableProxy, ICore {
@@ -15,17 +14,25 @@ contract Core is GovernableProxy, ICore {
     using SafeMath for uint;
     using Math for uint;
 
+    uint constant PRECISION = 1e4;
+
+    IbBTC public immutable bBTC;
+
     enum PeakState { Extinct, Active, Dormant }
+    mapping(address => PeakState) public peaks;
 
     address[] public peakAddresses;
-    mapping(address => PeakState) public peaks;
-    IbBTC public immutable bBTC;
+    address public feeSink;
+    uint public redeemFee;
+    uint public mintFee;
+    uint public accumulatedFee;
 
     uint256[50] private __gap;
 
     // END OF STORAGE VARIABLES
 
     event PeakWhitelisted(address indexed peak);
+    event FeeCollected(uint amount);
 
     /**
     * @param _bBTC bBTC token address
@@ -41,13 +48,28 @@ contract Core is GovernableProxy, ICore {
     * @param btc BTC amount supplied, scaled by 1e18
     * @return bBtc Badger BTC that was minted
     */
-    function mint(uint btc) override external returns(uint bBtc) {
+    function mint(uint btc, address account)
+        override
+        external
+        returns(uint)
+    {
         require(peaks[msg.sender] == PeakState.Active, "PEAK_INACTIVE");
+        (uint bBtc, uint fee) = btcToBbtc(btc);
+        require(bBtc > 0, "MINTING_0_bBTC");
+        accumulatedFee = accumulatedFee.add(fee);
+        bBTC.mint(account, bBtc);
+        return bBtc;
+    }
+
+    /**
+    * @param btc BTC amount supplied, scaled by 1e18
+    */
+    function btcToBbtc(uint btc) override public view returns (uint, uint) {
         // getPricePerFullShare can lose precision during division.
         // Dividing by a rounded-down value can round up the value, hence manually round it down.
-        bBtc = btc.div(getPricePerFullShare()).sub(1);
-        require(bBtc > 0, "MINTING_0_bBTC");
-        bBTC.mint(msg.sender, bBtc);
+        uint bBtc = btc.div(getPricePerFullShare()).sub(1);
+        uint fee = bBtc.mul(mintFee).div(PRECISION);
+        return (bBtc.sub(fee), fee);
     }
 
     /**
@@ -56,21 +78,42 @@ contract Core is GovernableProxy, ICore {
     * @param bBtc bBTC amount to redeem
     * @return btc amount redeemed, scaled by 1e18
     */
-    function redeem(uint bBtc) override external returns(uint btc) {
+    function redeem(uint bBtc, address account) override external returns (uint) {
         require(bBtc > 0, "REDEEMING_0_bBTC");
         require(peaks[msg.sender] != PeakState.Extinct, "PEAK_EXTINCT");
-        btc = bBtc.mul(getPricePerFullShare());
-        bBTC.burn(msg.sender, bBtc);
+        (uint btc, uint fee) = bBtcToBtc(bBtc);
+        accumulatedFee = accumulatedFee.add(fee);
+        bBTC.burn(account, bBtc);
+        return btc;
     }
 
-    /* ##### View ##### */
+    /**
+    * @return btc amount redeemed, scaled by 1e18
+    */
+    function bBtcToBtc(uint bBtc) override public view returns (uint btc, uint fee) {
+        fee = bBtc.mul(redeemFee).div(PRECISION);
+        btc = bBtc.sub(fee).mul(getPricePerFullShare());
+    }
 
     function getPricePerFullShare() override public view returns (uint) {
-        uint _totalSupply = IERC20(address(bBTC)).totalSupply();
+        uint _totalSupply = IERC20(address(bBTC)).totalSupply().add(accumulatedFee);
         if (_totalSupply > 0) {
             return totalSystemAssets().mul(1e18).div(_totalSupply);
         }
         return 1e18;
+    }
+
+    /**
+    * @notice Collect all the accumulated fee (denominated in bBTC)
+    */
+    function collectFee() external {
+        require(
+            feeSink != address(0),
+            "NULL_ADDRESS"
+        );
+        bBTC.mint(feeSink, accumulatedFee);
+        emit FeeCollected(accumulatedFee);
+        accumulatedFee = 0;
     }
 
     function totalSystemAssets() public view returns (uint totalAssets) {
@@ -118,5 +161,26 @@ contract Core is GovernableProxy, ICore {
             "Peak is extinct"
         );
         peaks[peak] = state;
+    }
+
+    /**
+    * @notice Set config
+    * @param _mintFee Mint Fee
+    * @param _redeemFee Redeem Fee
+    * @param _feeSink Address of the EOA/contract where accumulated fee will be transferred
+    */
+    function setConfig(uint _mintFee, uint _redeemFee, address _feeSink)
+        external
+        onlyGovernance
+    {
+        require(
+            _mintFee <= PRECISION
+            && _redeemFee <= PRECISION,
+            "INVALID_PARAMETERS"
+        );
+        require(_feeSink != address(0), "NULL_ADDRESS");
+        mintFee = _mintFee;
+        redeemFee = _redeemFee;
+        feeSink = _feeSink;
     }
 }

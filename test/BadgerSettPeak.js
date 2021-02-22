@@ -3,10 +3,9 @@ const { BigNumber } = ethers
 
 const deployer = require('./deployer')
 
-const mintFeeFactor = BigNumber.from('9990')
-const redeemFeeFactor = BigNumber.from('9990')
-const PRECISION = BigNumber.from('10000')
-const ZERO = BigNumber.from('0')
+const fee = BigNumber.from(10)
+const PRECISION = BigNumber.from(10000)
+const ZERO = BigNumber.from(0)
 const _1e18 = ethers.constants.WeiPerEther
 
 describe('BadgerSettPeak', function() {
@@ -15,10 +14,10 @@ describe('BadgerSettPeak', function() {
         alice = signers[0].address
         feeSink = signers[9].address
         artifacts = await deployer.setupContracts(feeSink)
+        ;({ curveLPToken, badgerPeak, bBTC, sett, core } = artifacts)
     })
 
     it('mint', async function() {
-        const { curveLPToken, curveBtcPeak, bBtc, sett } = artifacts
         const amount = _1e18.mul(10)
         await Promise.all([
             curveLPToken.mint(alice, amount),
@@ -26,38 +25,40 @@ describe('BadgerSettPeak', function() {
         ])
         await sett.deposit(amount)
 
-        await sett.approve(curveBtcPeak.address, amount)
-        await curveBtcPeak.mint(0, amount)
+        await sett.approve(badgerPeak.address, amount)
+        await badgerPeak.mint(0, amount)
 
-        const minted = amount.sub(1)
-        const aliceBtc = minted.mul(mintFeeFactor).div(PRECISION)
+        const bBtc = amount.sub(1) // round-down
+        const _fee = bBtc.mul(fee).div(PRECISION)
+        const aliceBtc = bBtc.sub(_fee)
+
         expect(await sett.balanceOf(alice)).to.eq(ZERO)
-        expect(await bBtc.balanceOf(alice)).to.eq(aliceBtc)
-        expect(await bBtc.balanceOf(curveBtcPeak.address)).to.eq(minted.sub(aliceBtc))
-        expect(await sett.balanceOf(curveBtcPeak.address)).to.eq(amount)
+        expect(await sett.balanceOf(badgerPeak.address)).to.eq(amount)
+        expect(await bBTC.balanceOf(alice)).to.eq(aliceBtc)
+        expect(await core.accumulatedFee()).to.eq(_fee)
     })
 
     it('redeem', async function() {
-        const { curveBtcPeak, bBtc, sett } = artifacts
-        const [ aliceBbtc, peakBbtc ] = await Promise.all([
-            bBtc.balanceOf(alice),
-            bBtc.balanceOf(curveBtcPeak.address)
+        const [ aliceBbtc, accumulatedFee ] = await Promise.all([
+            bBTC.balanceOf(alice),
+            core.accumulatedFee()
         ])
-        const amount = aliceBbtc.mul(9).div(10)
-        const fee = amount.sub(amount.mul(redeemFeeFactor).div(PRECISION))
+        const amount = aliceBbtc.mul(7).div(10) // not redeeming all
 
-        await bBtc.approve(curveBtcPeak.address, amount)
-        await curveBtcPeak.redeem(0, amount)
+        await badgerPeak.redeem(0, amount)
 
-        expect(aliceBbtc.sub(amount)).to.eq(await bBtc.balanceOf(alice));
-        expect(amount.mul(redeemFeeFactor).div(PRECISION)).to.eq(await sett.balanceOf(alice));
-        expect(peakBbtc.add(fee)).to.eq(await bBtc.balanceOf(curveBtcPeak.address));
+        const _fee = amount.mul(fee).div(PRECISION)
+        expect(aliceBbtc.sub(amount)).to.eq(await bBTC.balanceOf(alice));
+        expect(amount.sub(_fee)).to.eq(await sett.balanceOf(alice));
+        expect(await core.accumulatedFee()).to.eq(_fee.add(accumulatedFee))
     })
 
-    it('collectAdminFee', async function() {
-        const { curveBtcPeak, bBtc } = artifacts
-        const peakBbtc = await bBtc.balanceOf(curveBtcPeak.address)
-        await curveBtcPeak.collectAdminFee()
-        expect(peakBbtc).to.eq(await bBtc.balanceOf(feeSink));
+    it('collectFee', async function() {
+        const accumulatedFee = await core.accumulatedFee()
+
+        await core.collectFee()
+
+        expect(await bBTC.balanceOf(feeSink)).to.eq(accumulatedFee);
+        expect(await core.accumulatedFee()).to.eq(ZERO)
     })
 });
