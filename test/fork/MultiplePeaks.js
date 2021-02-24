@@ -138,52 +138,23 @@ describe('BadgerSettPeak + SaddlePeak (fork)', function() {
     }
 
     it('redeem in bcrvRenWSBTC', async function() {
-        const [ _, swap, sett ] = await deployer.getPoolContracts('sbtc')
-        const peakBal = await sett.balanceOf(badgerPeak.address)
-        const bbtcAmount = peakBal
-            .mul(await sett.getPricePerFullShare())
-            .mul(await swap.get_virtual_price())
-            .div(await core.getPricePerFullShare())
-            .div(_1e18)
-            .add(1) // round-off nuance
-        const calcRedeem = await badgerPeak.calcRedeem(0, bbtcAmount)
-        await testRedeem(0, 'sbtc', bbtcAmount)
-        expect(await sett.balanceOf(badgerPeak.address)).to.eq(ZERO)
+        await testRedeem(0, 'sbtc')
     });
 
     it('redeem in bcrvRenWBTC', async function() {
-        const [ _, swap, sett ] = await deployer.getPoolContracts('ren')
-        const peakBal = await sett.balanceOf(badgerPeak.address)
-        const bbtcAmount = peakBal
-            .mul(await sett.getPricePerFullShare())
-            .mul(await swap.get_virtual_price())
-            .div(await core.getPricePerFullShare())
-            .div(_1e18)
-            .add(1) // round-off nuance
-        await testRedeem(1, 'ren', bbtcAmount)
-        expect(await sett.balanceOf(badgerPeak.address)).to.eq(ZERO)
+        await testRedeem(1, 'ren')
     });
 
     it('redeem in b-tbtc/sbtcCrv', async function() {
-        const [ _, swap, sett ] = await deployer.getPoolContracts('tbtc')
-        const peakBal = await sett.balanceOf(badgerPeak.address)
-        const bbtcAmount = peakBal
-            .mul(await sett.getPricePerFullShare())
-            .mul(await swap.get_virtual_price())
-            .div(await core.getPricePerFullShare())
-            .div(_1e18)
-            .add(1) // round-off nuance
-        await testRedeem(2, 'tbtc', bbtcAmount)
-        expect(await sett.balanceOf(badgerPeak.address)).to.eq(ZERO)
+        await testRedeem(2, 'tbtc')
     });
 
     it('redeem in saddleTWRenSBTC', async function() {
         // const bbtcAmount = (await saddleTWRenSBTC.balanceOf(saddlePeak.address))
         //     .mul(await saddleSwap.getVirtualPrice())
         //     .div(await core.getPricePerFullShare())
-        const bbtcAmount = await bBTC.balanceOf(alice)
-        await testRedeemInCurveLP(0, bbtcAmount, [ saddlePeak, saddleTWRenSBTC, saddleSwap ])
-        expect((await saddleTWRenSBTC.balanceOf(saddlePeak.address)).lt(BigNumber.from(5))).to.be.true // dust
+        await testRedeemInCurveLP(0, await bBTC.balanceOf(alice), [ saddlePeak, saddleTWRenSBTC, saddleSwap ])
+        expect((await saddleTWRenSBTC.balanceOf(saddlePeak.address)).lte(BigNumber.from(2))).to.be.true // dust
     });
 
     it('sanity checks', async function() {
@@ -191,7 +162,7 @@ describe('BadgerSettPeak + SaddlePeak (fork)', function() {
         expect(await bBTC.totalSupply()).to.eq(ZERO)
         expect(await bBTC.getPricePerFullShare()).to.eq(_1e18)
         expect(await core.getPricePerFullShare()).to.eq(_1e18)
-        expect((await core.totalSystemAssets()).lt(BigNumber.from(5))).to.be.true // dust
+        expect((await core.totalSystemAssets()).lte(BigNumber.from(2))).to.be.true // dust
         expect(await core.accumulatedFee()).to.eq(ZERO)
     })
 
@@ -252,23 +223,39 @@ describe('BadgerSettPeak + SaddlePeak (fork)', function() {
         )
     }
 
-    async function testRedeem(poolId, pool, amount) {
+    async function testRedeem(poolId, pool) {
         const [ curveLPToken, swap, sett ] = await deployer.getPoolContracts(pool)
-        const [ virtualPrice, pricePerFullShare, aliceBbtcBal, aliceCrvBal, peakCrvLPBal, peakSettBal, accumulatedFee ] = await Promise.all([
+        const amount = (await sett.balanceOf(badgerPeak.address))
+            .mul(await sett.getPricePerFullShare())
+            .mul(await swap.get_virtual_price())
+            .div(await core.getPricePerFullShare())
+            .div(_1e18)
+            .add(1) // round-off nuance
+
+        const [
+            virtualPrice,
+            ppfs,
+            aliceBbtcBal,
+            aliceCrvBal,
+            peakCrvLPBal,
+            accumulatedFee,
+            calcRedeem
+        ] = await Promise.all([
             swap.get_virtual_price(),
             sett.getPricePerFullShare(),
             bBTC.balanceOf(alice),
             curveLPToken.balanceOf(alice),
             curveLPToken.balanceOf(badgerPeak.address),
-            sett.balanceOf(badgerPeak.address),
             core.accumulatedFee(),
+            badgerPeak.calcRedeem(poolId, amount)
         ])
         const fee = amount.mul(mintAndRedeemFee).div(PRECISION)
         const expected = amount.sub(fee)
             .mul(await core.getPricePerFullShare())
             .mul(_1e18)
-            .div(pricePerFullShare)
+            .div(ppfs)
             .div(virtualPrice)
+        expect(calcRedeem).to.eq(expected)
 
         await badgerPeak.redeem(poolId, amount)
 
@@ -287,14 +274,14 @@ describe('BadgerSettPeak + SaddlePeak (fork)', function() {
             sett,
             [
                 expected, // sett.balanceOf(alice)
-                peakSettBal.sub(expected), // sett.balanceOf(peak.address)
+                ZERO, // sett.balanceOf(peak.address)
             ]
         )
     }
 
     async function testMint(poolId, amount, [ peak, curveLPToken, swap, sett ]) {
         const [
-            pricePerFullShare,
+            ppfs,
             virtualPrice,
             aliceCrvBal,
             aliceBbtcBal,
@@ -302,7 +289,7 @@ describe('BadgerSettPeak + SaddlePeak (fork)', function() {
             peakSettLPBal,
             totalSupply,
             accumulatedFee,
-            expectedMint
+            calcMint
         ] = await Promise.all([
             sett.getPricePerFullShare(),
             swap.get_virtual_price(),
@@ -315,7 +302,7 @@ describe('BadgerSettPeak + SaddlePeak (fork)', function() {
             badgerPeak.calcMint(poolId, amount)
         ])
         let mintedBbtc = amount
-            .mul(pricePerFullShare)
+            .mul(ppfs)
             .mul(virtualPrice)
             .div(_1e18.mul(_1e18))
         if (totalSupply.gt(ZERO)) {
@@ -325,7 +312,7 @@ describe('BadgerSettPeak + SaddlePeak (fork)', function() {
         }
         const fee = mintedBbtc.mul(mintAndRedeemFee).div(PRECISION)
         const expectedBbtc = mintedBbtc.sub(fee)
-        expect(expectedMint).to.eq(expectedBbtc)
+        expect(calcMint).to.eq(expectedBbtc)
 
         await sett.approve(peak.address, amount)
         await peak.mint(poolId, amount)
