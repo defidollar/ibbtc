@@ -30,7 +30,6 @@ Needs [Alchemy](alchemyapi.io) API key. `export ALCHEMY=<API_KEY>`
 ```
 npm run compile
 npm t
-npm run coverage
 ```
 
 ## Deployments
@@ -43,6 +42,9 @@ npx hardhat run scripts/deploy.js --network local
 Addresses will be written to `deployments/local.json`.
 
 ## Coverage
+```
+npm run coverage
+```
 ```
 ----------------------------|----------|----------|----------|----------|----------------|
 File                        |  % Stmts | % Branch |  % Funcs |  % Lines |Uncovered Lines |
@@ -64,10 +66,8 @@ File                        |  % Stmts | % Branch |  % Funcs |  % Lines |Uncover
   ISett.sol                 |      100 |      100 |      100 |      100 |                |
   ISwap.sol                 |      100 |      100 |      100 |      100 |                |
   IbBTC.sol                 |      100 |      100 |      100 |      100 |                |
- contracts/test/            |        0 |        0 |        0 |        0 |                |
-  SaddlePeak.sol            |        0 |        0 |        0 |        0 |... 153,154,159 |
 ----------------------------|----------|----------|----------|----------|----------------|
-All files                   |    74.05 |       54 |    73.08 |    75.35 |                |
+All files                   |    92.38 |    56.25 |    88.37 |    92.24 |                |
 ----------------------------|----------|----------|----------|----------|----------------|
 ```
 
