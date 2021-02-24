@@ -83,8 +83,11 @@ describe('BadgerSettPeak (fork)', function() {
             core.accumulatedFee(),
         ])
         const fee = amount.mul(mintAndRedeemFee).div(PRECISION)
-        const settToBtc = pricePerFullShare.mul(virtualPrice).div(_1e18)
-        const expected = amount.sub(fee).mul(await core.getPricePerFullShare()).div(settToBtc)
+        const expected = amount.sub(fee)
+            .mul(await core.getPricePerFullShare())
+            .mul(_1e18)
+            .div(pricePerFullShare)
+            .div(virtualPrice)
 
         await badgerPeak.redeem(poolId, amount)
 
@@ -111,39 +114,52 @@ describe('BadgerSettPeak (fork)', function() {
     async function testMint(poolId, amount, [ peak, curveLPToken, swap, sett ]) {
         const [
             pricePerFullShare,
-            bBTCpricePerFullShare,
             virtualPrice,
             aliceCrvBal,
             aliceBbtcBal,
             peakCrvLPBal,
             peakSettLPBal,
-            accumulatedFee
+            totalSupply,
+            accumulatedFee,
+            expectedMint
         ] = await Promise.all([
             sett.getPricePerFullShare(),
-            core.getPricePerFullShare(),
             swap.get_virtual_price(),
             curveLPToken.balanceOf(alice),
             bBTC.balanceOf(alice),
             curveLPToken.balanceOf(peak.address),
             sett.balanceOf(peak.address),
+            bBTC.totalSupply(),
             core.accumulatedFee(),
+            badgerPeak.calcMint(poolId, amount)
         ])
-        const mintedBbtc = amount
+        let mintedBbtc = amount
             .mul(pricePerFullShare)
-            .div(_1e18)
             .mul(virtualPrice)
-            .div(bBTCpricePerFullShare)
-            .sub(1)
+            .div(_1e18.mul(_1e18))
+        if (totalSupply.gt(ZERO)) {
+            mintedBbtc = mintedBbtc
+                .mul((await bBTC.totalSupply()).add(accumulatedFee))
+                .div(await core.totalSystemAssets())
+        }
         const fee = mintedBbtc.mul(mintAndRedeemFee).div(PRECISION)
         const expectedBbtc = mintedBbtc.sub(fee)
+        expect(expectedMint).to.eq(expectedBbtc)
+
         await sett.approve(peak.address, amount)
         await peak.mint(poolId, amount)
+        // console.log({
+        //     expectedBbtc: expectedBbtc.toString(),
+        //     expectedMint: expectedMint.toString(),
+        //     actual: (await bBTC.balanceOf(alice)).sub(aliceBbtcBal).toString()
+        // })
         await assertions(
             peak,
             curveLPToken,
             [
                 aliceCrvBal, // curveLPToken.balanceOf(alice)
-                aliceBbtcBal.add(expectedBbtc), // bBTC.balanceOf(alice)
+                aliceBbtcBal.add(expectedMint), // bBTC.balanceOf(alice)
+                // aliceBbtcBal.add(expectedBbtc), // bBTC.balanceOf(alice)
                 peakCrvLPBal, // curveLPToken.balanceOf(peak.address)
                 accumulatedFee.add(fee) // core.accumulatedFee()
             ]

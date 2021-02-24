@@ -9,7 +9,6 @@ import {ISaddleSwap} from "../interfaces/ISwap.sol";
 import {ICore} from "../interfaces/ICore.sol";
 import {ISett} from "../interfaces/ISett.sol";
 import {IPeak} from "../interfaces/IPeak.sol";
-
 import {AccessControlDefended} from "../common/AccessControlDefended.sol";
 
 contract SaddlePeak is AccessControlDefended, IPeak {
@@ -41,6 +40,7 @@ contract SaddlePeak is AccessControlDefended, IPeak {
 
     /**
     * @notice Mint bBTC with Sett LP token
+    * @dev Invoking pool.lpToken.safeTransferFrom() before core.mint(), will mess up core.totalSystemAssets() calculation
     * @param poolId System internal ID of the whitelisted curve pool
     * @param inAmount Amount of Sett LP token to mint bBTC with
     * @return outAmount Amount of bBTC minted to user's account
@@ -63,6 +63,7 @@ contract SaddlePeak is AccessControlDefended, IPeak {
     /**
     * @notice Redeem bBTC in Sett LP tokens
     * @dev There might not be enough Sett LP to fulfill the request, in which case the transaction will revert
+    *      Invoking pool.lpToken.safeTransfer() before core.redeem(), will mess up core.totalSystemAssets() calculation
     * @param poolId System internal ID of the whitelisted curve pool
     * @param inAmount Amount of bBTC to redeem
     * @return outAmount Amount of Sett LP token
@@ -78,7 +79,6 @@ contract SaddlePeak is AccessControlDefended, IPeak {
         CurvePool memory pool = pools[poolId];
         outAmount = _btcToSett(pool, core.redeem(inAmount, msg.sender));
         // will revert if the contract has insufficient funds.
-        // This opens up a couple front-running vectors. @todo Discuss with Badger team about possibilities.
         pool.lpToken.safeTransfer(msg.sender, outAmount);
         emit Redeem(msg.sender, inAmount);
     }
@@ -110,17 +110,20 @@ contract SaddlePeak is AccessControlDefended, IPeak {
                         pool,
                         pool.lpToken.balanceOf(address(this))
                     )
-                    .div(1e18)
                 );
         }
     }
 
+    /**
+    * @param btc BTC amount scaled by 1e18
+    */
     function _btcToSett(CurvePool memory pool, uint btc)
         internal
         view
         returns(uint)
     {
-        return btc.div(_settToBtc(pool, 1e18).div(1e18));
+        return btc
+            .div(pool.swap.getVirtualPrice());
     }
 
     function _settToBtc(CurvePool memory pool, uint amount)
@@ -129,7 +132,8 @@ contract SaddlePeak is AccessControlDefended, IPeak {
         returns(uint)
     {
         return amount
-            .mul(pool.swap.getVirtualPrice()); // scaled by 1e18; allows us a gas optimization in core.mint
+            .mul(pool.swap.getVirtualPrice())
+            .div(1e18);
     }
 
     /* ##### Admin ##### */

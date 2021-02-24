@@ -3,7 +3,7 @@ const { BigNumber } = ethers
 
 const blockNumber = 11892010
 const wbtcWhaleBalance = BigNumber.from(150).mul(1e8) // wbtc has 8 decimals
-const badgerDevMultisig = '0xB65cef03b9B89f99517643226d76e286ee999e77'
+// const badgerDevMultisig = '0xB65cef03b9B89f99517643226d76e286ee999e77'
 const wBTC = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599'
 const wBTCWhale = '0x875abe6f1e2aba07bed4a3234d8555a0d7656d12'
 const signer = ethers.provider.getSigner(wBTCWhale)
@@ -58,20 +58,19 @@ async function setupMainnetContracts(feeSink) {
         core.setConfig(10, 10, feeSink)
     ])
     // required for sett contracts whitelist
-    await web3.eth.sendTransaction({ to: badgerDevMultisig, value: web3.utils.toWei('1'), from: (await ethers.getSigners())[0].address })
-    await impersonateAccount(badgerDevMultisig)
+    // await web3.eth.sendTransaction({ to: badgerDevMultisig, value: web3.utils.toWei('1'), from: (await ethers.getSigners())[0].address })
+    // await impersonateAccount(badgerDevMultisig)
     await impersonateAccount(wBTCWhale)
     return { badgerPeak, bBTC, core }
 
 }
 
 async function getPoolContracts(pool) {
-    const contracts = await Promise.all([
+    return Promise.all([
         ethers.getContractAt('CurveLPToken', crvPools[pool].lpToken),
-        ethers.getContractAt('Swap', crvPools[pool].swap),
-        ethers.getContractAt('Sett', crvPools[pool].sett)
+        ethers.getContractAt('ISwap', crvPools[pool].swap),
+        ethers.getContractAt('ISett', crvPools[pool].sett)
     ])
-    return contracts
 }
 
 async function mintCrvPoolToken(pool, account, a) {
@@ -97,6 +96,12 @@ async function mintCrvPoolToken(pool, account, a) {
     await _wBTC.connect(signer).approve(_deposit.address, amount)
     await _deposit.connect(signer).add_liquidity(_amounts, 0)
     await _lpToken.connect(signer).transfer(account, a)
+}
+
+async function getWbtc(account, amount) {
+    const _wBTC = await ethers.getContractAt('IERC20', wBTC)
+    await _wBTC.connect(signer).transfer(account, amount)
+    return _wBTC
 }
 
 async function setupContracts(feeSink) {
@@ -146,5 +151,6 @@ module.exports = {
     getPoolContracts,
     mintCrvPoolToken,
     impersonateAccount,
+    getWbtc,
     crvPools
 }

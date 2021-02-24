@@ -41,6 +41,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
 
     /**
     * @notice Mint bBTC with Sett LP token
+    * @dev Invoking pool.lpToken.safeTransferFrom() before core.mint(), will mess up core.totalSystemAssets() calculation
     * @param poolId System internal ID of the whitelisted curve pool
     * @param inAmount Amount of Sett LP token to mint bBTC with
     * @return outAmount Amount of bBTC minted to user's account
@@ -63,6 +64,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
     /**
     * @notice Redeem bBTC in Sett LP tokens
     * @dev There might not be enough Sett LP to fulfill the request, in which case the transaction will revert
+    *      Invoking pool.lpToken.safeTransfer() before core.redeem(), will mess up core.totalSystemAssets() calculation
     * @param poolId System internal ID of the whitelisted curve pool
     * @param inAmount Amount of bBTC to redeem
     * @return outAmount Amount of Sett LP token
@@ -78,7 +80,6 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         CurvePool memory pool = pools[poolId];
         outAmount = _btcToSett(pool, core.redeem(inAmount, msg.sender));
         // will revert if the contract has insufficient funds.
-        // This opens up a couple front-running vectors. @todo Discuss with Badger team about possibilities.
         pool.sett.safeTransfer(msg.sender, outAmount);
         emit Redeem(msg.sender, inAmount);
     }
@@ -89,8 +90,8 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         (bBtc,) = core.btcToBbtc(_settToBtc(pools[poolId], inAmount));
     }
 
-    function calcRedeem(uint poolId, uint _bBtc) override external view returns(uint) {
-        (uint btc,) = core.bBtcToBtc(_bBtc);
+    function calcRedeem(uint poolId, uint bBtc) override external view returns(uint) {
+        (uint btc,) = core.bBtcToBtc(bBtc);
         return _btcToSett(pools[poolId], btc);
     }
 
@@ -104,25 +105,38 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         // We do not expect to have more than 3-4 pools, so this loop should be fine
         for (uint i = 0; i < numPools; i++) {
             pool = pools[i];
-            assets = assets
-                .add(
-                    _settToBtc(
-                        pool,
-                        pool.sett.balanceOf(address(this))
-                    )
-                    .div(1e18)
-                );
+            assets = assets.add(
+                _settToBtc(
+                    pool,
+                    pool.sett.balanceOf(address(this))
+                )
+            );
         }
     }
 
+    /**
+    * @dev Determine sett amount given btc
+    * @param btc BTC amount, scaled by 1e18
+    *        Will revert for > 1e41.
+    *        It's not possible to supply that amount because btc supply is capped at 21e24
+    */
     function _btcToSett(CurvePool memory pool, uint btc)
         internal
         view
         returns(uint)
     {
-        return btc.div(_settToBtc(pool, 1e18).div(1e18));
+        return btc // is already scaled by 1e18
+            .mul(1e18)
+            .div(pool.sett.getPricePerFullShare())
+            .div(pool.swap.get_virtual_price());
     }
 
+    /**
+    * @dev Determine btc amount given sett amount
+    * @param amount Sett LP token amount
+    *        Will revert for amount > 1e41.
+    *        It's not possible to supply that amount because btc supply is capped at 21e24
+    */
     function _settToBtc(CurvePool memory pool, uint amount)
         internal
         view
@@ -130,11 +144,11 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
     {
         return amount
             .mul(pool.sett.getPricePerFullShare())
-            .div(1e18)
-            .mul(pool.swap.get_virtual_price()); // scaled by 1e18; allows us a gas optimization in core.mint
+            .mul(pool.swap.get_virtual_price())
+            .div(1e36);
     }
 
-    /* ##### Admin ##### */
+    /* ##### onlyGovernance ##### */
 
     /**
     * @notice Manage whitelisted curve pools and their respective sett vaults
