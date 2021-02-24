@@ -62,7 +62,7 @@ contract Core is GovernableProxy, ICore {
     }
 
     /**
-    * @param btc BTC amount supplied, scaled by 1e18
+    * @param btc BTC amount supplied
     */
     function btcToBbtc(uint btc) override public view returns (uint bBtc, uint fee) {
         uint _totalSupply = IERC20(address(bBTC)).totalSupply().add(accumulatedFee);

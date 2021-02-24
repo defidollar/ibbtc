@@ -78,8 +78,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
     {
         _lockForBlock(msg.sender);
         CurvePool memory pool = pools[poolId];
-        uint btc = core.redeem(inAmount, msg.sender);
-        outAmount = _btcToSett(pool, btc);
+        outAmount = _btcToSett(pool, core.redeem(inAmount, msg.sender));
         // will revert if the contract has insufficient funds.
         pool.sett.safeTransfer(msg.sender, outAmount);
         emit Redeem(msg.sender, inAmount);
@@ -93,8 +92,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
 
     function calcRedeem(uint poolId, uint bBtc) override external view returns(uint) {
         (uint btc,) = core.bBtcToBtc(bBtc);
-        uint outAmount = _btcToSett(pools[poolId], btc);
-        return outAmount;
+        return _btcToSett(pools[poolId], btc);
     }
 
     function portfolioValue()
@@ -117,33 +115,40 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
     }
 
     /**
-    * @param btc BTC amount scaled by 1e18
+    * @dev Determine sett amount given btc
+    * @param btc BTC amount, scaled by 1e18
+    *        Will revert for > 1e41.
+    *        It's not possible to supply that amount because btc supply is capped at 21e24
     */
     function _btcToSett(CurvePool memory pool, uint btc)
         internal
         view
         returns(uint)
     {
-        return btc
+        return btc // is already scaled by 1e18
             .mul(1e18)
             .div(pool.sett.getPricePerFullShare())
             .div(pool.swap.get_virtual_price());
     }
 
+    /**
+    * @dev Determine btc amount given sett amount
+    * @param amount Sett LP token amount
+    *        Will revert for amount > 1e41.
+    *        It's not possible to supply that amount because btc supply is capped at 21e24
+    */
     function _settToBtc(CurvePool memory pool, uint amount)
         internal
         view
         returns(uint)
     {
-        // will revert for amount > 1e41
-        // It's not possible to supply that amount because btc supply is capped at 21e24
         return amount
             .mul(pool.sett.getPricePerFullShare())
             .mul(pool.swap.get_virtual_price())
             .div(1e36);
     }
 
-    /* ##### Admin ##### */
+    /* ##### onlyGovernance ##### */
 
     /**
     * @notice Manage whitelisted curve pools and their respective sett vaults
