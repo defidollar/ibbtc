@@ -12,6 +12,8 @@ import {IPeak} from "../interfaces/IPeak.sol";
 
 import {AccessControlDefended} from "../common/AccessControlDefended.sol";
 
+import "hardhat/console.sol";
+
 contract SaddlePeak is AccessControlDefended, IPeak {
     using SafeERC20 for IERC20;
     using SafeERC20 for ISett;
@@ -77,6 +79,7 @@ contract SaddlePeak is AccessControlDefended, IPeak {
         _lockForBlock(msg.sender);
         CurvePool memory pool = pools[poolId];
         outAmount = _btcToSett(pool, core.redeem(inAmount, msg.sender));
+        console.log("redeem: outAmount %d, bal %d", outAmount, pool.lpToken.balanceOf(address(this)));
         // will revert if the contract has insufficient funds.
         // This opens up a couple front-running vectors. @todo Discuss with Badger team about possibilities.
         pool.lpToken.safeTransfer(msg.sender, outAmount);
@@ -110,17 +113,20 @@ contract SaddlePeak is AccessControlDefended, IPeak {
                         pool,
                         pool.lpToken.balanceOf(address(this))
                     )
-                    .div(1e18)
                 );
         }
     }
 
+    /**
+    * @param btc BTC amount scaled by 1e18
+    */
     function _btcToSett(CurvePool memory pool, uint btc)
         internal
         view
         returns(uint)
     {
-        return btc.div(_settToBtc(pool, 1e18).div(1e18));
+        return btc
+            .div(pool.swap.getVirtualPrice());
     }
 
     function _settToBtc(CurvePool memory pool, uint amount)
@@ -129,7 +135,8 @@ contract SaddlePeak is AccessControlDefended, IPeak {
         returns(uint)
     {
         return amount
-            .mul(pool.swap.getVirtualPrice()); // scaled by 1e18; allows us a gas optimization in core.mint
+            .mul(pool.swap.getVirtualPrice())
+            .div(1e18);
     }
 
     /* ##### Admin ##### */

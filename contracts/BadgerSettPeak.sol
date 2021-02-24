@@ -11,6 +11,8 @@ import {ISett} from "./interfaces/ISett.sol";
 import {IPeak} from "./interfaces/IPeak.sol";
 import {AccessControlDefended} from "./common/AccessControlDefended.sol";
 
+import "hardhat/console.sol";
+
 contract BadgerSettPeak is AccessControlDefended, IPeak {
     using SafeERC20 for IERC20;
     using SafeERC20 for ISett;
@@ -55,6 +57,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         _lockForBlock(msg.sender);
         CurvePool memory pool = pools[poolId];
         outAmount = core.mint(_settToBtc(pool, inAmount), msg.sender);
+        console.log("outAmount %d", outAmount);
         // will revert if user passed an unsupported poolId
         pool.sett.safeTransferFrom(msg.sender, address(this), inAmount);
         emit Mint(msg.sender, outAmount);
@@ -76,7 +79,11 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
     {
         _lockForBlock(msg.sender);
         CurvePool memory pool = pools[poolId];
-        outAmount = _btcToSett(pool, core.redeem(inAmount, msg.sender));
+        uint btc = core.redeem(inAmount, msg.sender);
+        outAmount = _btcToSett(pool, btc);
+        // console.log("redeem: btc %d, outAmount %d, bal %d", btc, outAmount, pool.sett.balanceOf(address(this)));
+        console.log("redeem: outAmount %d, bal %d", outAmount, pool.sett.balanceOf(address(this)));
+        // console.log("redeem: outAmount %d, bal %d, diff %d", outAmount, pool.sett.balanceOf(address(this)), outAmount.sub(pool.sett.balanceOf(address(this))));
         // will revert if the contract has insufficient funds.
         // This opens up a couple front-running vectors. @todo Discuss with Badger team about possibilities.
         pool.sett.safeTransfer(msg.sender, outAmount);
@@ -89,9 +96,11 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         (bBtc,) = core.btcToBbtc(_settToBtc(pools[poolId], inAmount));
     }
 
-    function calcRedeem(uint poolId, uint _bBtc) override external view returns(uint) {
-        (uint btc,) = core.bBtcToBtc(_bBtc);
-        return _btcToSett(pools[poolId], btc);
+    function calcRedeem(uint poolId, uint bBtc) override external view returns(uint) {
+        (uint btc,) = core.bBtcToBtc(bBtc);
+        uint outAmount = _btcToSett(pools[poolId], btc);
+        console.log("calcRedeem: btc %d, outAmount %d", btc, outAmount);
+        return outAmount;
     }
 
     function portfolioValue()
@@ -104,23 +113,27 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         // We do not expect to have more than 3-4 pools, so this loop should be fine
         for (uint i = 0; i < numPools; i++) {
             pool = pools[i];
-            assets = assets
-                .add(
-                    _settToBtc(
-                        pool,
-                        pool.sett.balanceOf(address(this))
-                    )
-                    .div(1e18)
-                );
+            assets = assets.add(
+                _settToBtc(
+                    pool,
+                    pool.sett.balanceOf(address(this))
+                )
+            );
         }
     }
 
+    /**
+    * @param btc BTC amount scaled by 1e18
+    */
     function _btcToSett(CurvePool memory pool, uint btc)
         internal
         view
         returns(uint)
     {
-        return btc.div(_settToBtc(pool, 1e18).div(1e18));
+        return btc
+            .mul(1e18)
+            .div(pool.sett.getPricePerFullShare())
+            .div(pool.swap.get_virtual_price());
     }
 
     function _settToBtc(CurvePool memory pool, uint amount)
@@ -128,10 +141,12 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         view
         returns(uint)
     {
+        // will revert for amount > 1e41
+        // It's not possible to supply that amount because btc supply is capped at 21e24
         return amount
             .mul(pool.sett.getPricePerFullShare())
-            .div(1e18)
-            .mul(pool.swap.get_virtual_price()); // scaled by 1e18; allows us a gas optimization in core.mint
+            .mul(pool.swap.get_virtual_price())
+            .div(1e36);
     }
 
     /* ##### Admin ##### */

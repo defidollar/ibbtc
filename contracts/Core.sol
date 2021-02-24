@@ -9,6 +9,8 @@ import {IbBTC} from "./interfaces/IbBTC.sol";
 import {ICore} from "./interfaces/ICore.sol";
 import {GovernableProxy} from "./common/proxy/GovernableProxy.sol";
 
+import "hardhat/console.sol";
+
 contract Core is GovernableProxy, ICore {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
@@ -23,8 +25,8 @@ contract Core is GovernableProxy, ICore {
 
     address[] public peakAddresses;
     address public feeSink;
-    uint public redeemFee;
     uint public mintFee;
+    uint public redeemFee;
     uint public accumulatedFee;
 
     uint256[50] private __gap;
@@ -64,12 +66,17 @@ contract Core is GovernableProxy, ICore {
     /**
     * @param btc BTC amount supplied, scaled by 1e18
     */
-    function btcToBbtc(uint btc) override public view returns (uint, uint) {
-        // getPricePerFullShare can lose precision during division.
-        // Dividing by a rounded-down value can round up the value, hence manually round it down.
-        uint bBtc = btc.div(getPricePerFullShare()).sub(1);
-        uint fee = bBtc.mul(mintFee).div(PRECISION);
-        return (bBtc.sub(fee), fee);
+    function btcToBbtc(uint btc) override public view returns (uint bBtc, uint fee) {
+        uint _totalSupply = IERC20(address(bBTC)).totalSupply().add(accumulatedFee);
+        if (_totalSupply > 0) {
+            bBtc = btc.mul(_totalSupply).div(totalSystemAssets());
+        } else {
+            bBtc = btc;
+        }
+        fee = bBtc.mul(mintFee).div(PRECISION);
+        bBtc = bBtc.sub(fee);
+        // console.log("bBtc %d, mintFee %d, fee %d", bBtc.sub(fee), mintFee, fee);
+        // return (bBtc.sub(fee), fee);
     }
 
     /**
@@ -107,10 +114,8 @@ contract Core is GovernableProxy, ICore {
     * @notice Collect all the accumulated fee (denominated in bBTC)
     */
     function collectFee() external {
-        require(
-            feeSink != address(0),
-            "NULL_ADDRESS"
-        );
+        require(feeSink != address(0), "NULL_ADDRESS");
+        require(accumulatedFee > 0, "NO_FEE");
         bBTC.mint(feeSink, accumulatedFee);
         emit FeeCollected(accumulatedFee);
         accumulatedFee = 0;
