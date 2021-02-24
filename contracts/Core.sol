@@ -9,8 +9,6 @@ import {IbBTC} from "./interfaces/IbBTC.sol";
 import {ICore} from "./interfaces/ICore.sol";
 import {GovernableProxy} from "./common/proxy/GovernableProxy.sol";
 
-import "hardhat/console.sol";
-
 contract Core is GovernableProxy, ICore {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
@@ -75,8 +73,6 @@ contract Core is GovernableProxy, ICore {
         }
         fee = bBtc.mul(mintFee).div(PRECISION);
         bBtc = bBtc.sub(fee);
-        // console.log("bBtc %d, mintFee %d, fee %d", bBtc.sub(fee), mintFee, fee);
-        // return (bBtc.sub(fee), fee);
     }
 
     /**

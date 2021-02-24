@@ -11,8 +11,6 @@ import {ISett} from "./interfaces/ISett.sol";
 import {IPeak} from "./interfaces/IPeak.sol";
 import {AccessControlDefended} from "./common/AccessControlDefended.sol";
 
-import "hardhat/console.sol";
-
 contract BadgerSettPeak is AccessControlDefended, IPeak {
     using SafeERC20 for IERC20;
     using SafeERC20 for ISett;
@@ -43,6 +41,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
 
     /**
     * @notice Mint bBTC with Sett LP token
+    * @dev Invoking pool.lpToken.safeTransferFrom() before core.mint(), will mess up core.totalSystemAssets() calculation
     * @param poolId System internal ID of the whitelisted curve pool
     * @param inAmount Amount of Sett LP token to mint bBTC with
     * @return outAmount Amount of bBTC minted to user's account
@@ -57,7 +56,6 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         _lockForBlock(msg.sender);
         CurvePool memory pool = pools[poolId];
         outAmount = core.mint(_settToBtc(pool, inAmount), msg.sender);
-        console.log("outAmount %d", outAmount);
         // will revert if user passed an unsupported poolId
         pool.sett.safeTransferFrom(msg.sender, address(this), inAmount);
         emit Mint(msg.sender, outAmount);
@@ -66,6 +64,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
     /**
     * @notice Redeem bBTC in Sett LP tokens
     * @dev There might not be enough Sett LP to fulfill the request, in which case the transaction will revert
+    *      Invoking pool.lpToken.safeTransfer() before core.redeem(), will mess up core.totalSystemAssets() calculation
     * @param poolId System internal ID of the whitelisted curve pool
     * @param inAmount Amount of bBTC to redeem
     * @return outAmount Amount of Sett LP token
@@ -81,11 +80,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         CurvePool memory pool = pools[poolId];
         uint btc = core.redeem(inAmount, msg.sender);
         outAmount = _btcToSett(pool, btc);
-        // console.log("redeem: btc %d, outAmount %d, bal %d", btc, outAmount, pool.sett.balanceOf(address(this)));
-        console.log("redeem: outAmount %d, bal %d", outAmount, pool.sett.balanceOf(address(this)));
-        // console.log("redeem: outAmount %d, bal %d, diff %d", outAmount, pool.sett.balanceOf(address(this)), outAmount.sub(pool.sett.balanceOf(address(this))));
         // will revert if the contract has insufficient funds.
-        // This opens up a couple front-running vectors. @todo Discuss with Badger team about possibilities.
         pool.sett.safeTransfer(msg.sender, outAmount);
         emit Redeem(msg.sender, inAmount);
     }
@@ -99,7 +94,6 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
     function calcRedeem(uint poolId, uint bBtc) override external view returns(uint) {
         (uint btc,) = core.bBtcToBtc(bBtc);
         uint outAmount = _btcToSett(pools[poolId], btc);
-        console.log("calcRedeem: btc %d, outAmount %d", btc, outAmount);
         return outAmount;
     }
 

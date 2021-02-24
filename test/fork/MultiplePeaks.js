@@ -14,7 +14,7 @@ const saddle = {
 }
 const saddleTWRenSBTCWhale = '0xffd4dae0d7d8ddb6f408dca0a47763ae3a57f4ce'
 
-describe.only('BadgerSettPeak + SaddlePeak (fork)', function() {
+describe('BadgerSettPeak + SaddlePeak (fork)', function() {
     before('setup contracts', async function() {
         signers = await ethers.getSigners()
         alice = signers[0].address
@@ -89,7 +89,6 @@ describe.only('BadgerSettPeak + SaddlePeak (fork)', function() {
         const [ lp, _, sett ] = contracts
         await lp.approve(sett.address, amount)
         await sett.deposit(amount)
-        console.log('totalSystemAssets', (await core.totalSystemAssets()).toString())
         await testMint(0, await sett.balanceOf(alice), [badgerPeak].concat(contracts))
     });
 
@@ -114,34 +113,29 @@ describe.only('BadgerSettPeak + SaddlePeak (fork)', function() {
     });
 
     it('getPricePerFullShare should increase after a trade', async function() {
-        const ppfs = await core.getPricePerFullShare()
-
         let amount = BigNumber.from(15).mul(1e8) // wbtc has 8 decimals
         const wbtc = await deployer.getWbtc(alice, amount)
+
+        let ppfs = await core.getPricePerFullShare()
+        for (let i = 0; i < 10; i++) {
+            await tradeWbtcxRen(wbtc)
+            // trades will increase the virtual price; so ppfs should increase
+            const _ppfs = await core.getPricePerFullShare()
+            expect(_ppfs.gt(ppfs)).to.be.true
+            ppfs = _ppfs
+        }
+    })
+
+    async function tradeWbtcxRen(wbtc) {
+        let amount = await wbtc.balanceOf(alice)
         await wbtc.approve(renWbtcSwap.address, amount)
         await renWbtcSwap.exchange(1 /* wbtc */, 0 /* ren */, amount, 0)
 
-        // trades will increase the virtual price; so ppfs should increase
-        expect((await core.getPricePerFullShare()).gt(ppfs)).to.be.true
-
-        // const ren = await ethers.getContractAt('IERC20', '0xeb4c2781e4eba804ce9a9803c67d0893436bb27d')
-        // amount = await ren.balanceOf(alice)
-        // await ren.approve(renWbtcSwap.address, amount)
-        // await renWbtcSwap.exchange(0, 1, amount, 0)
-    })
-
-    it.skip('collectFee', async function() {
-        const accumulatedFee = await core.accumulatedFee()
-        expect(accumulatedFee.gt(ZERO)).to.be.true
-
-        await core.collectFee()
-
-        expect(await bBTC.balanceOf(feeSink)).to.eq(accumulatedFee);
-        expect(await core.accumulatedFee()).to.eq(ZERO)
-
-        // transfer all to alice, to be able to redeem all bbtc in existence
-        await bBTC.connect(ethers.provider.getSigner(feeSink)).transfer(alice, accumulatedFee)
-    })
+        const ren = await ethers.getContractAt('IERC20', '0xeb4c2781e4eba804ce9a9803c67d0893436bb27d')
+        amount = await ren.balanceOf(alice)
+        await ren.approve(renWbtcSwap.address, amount)
+        await renWbtcSwap.exchange(0, 1, amount, 0)
+    }
 
     it('redeem in bcrvRenWSBTC', async function() {
         const [ _, swap, sett ] = await deployer.getPoolContracts('sbtc')
@@ -151,17 +145,8 @@ describe.only('BadgerSettPeak + SaddlePeak (fork)', function() {
             .mul(await swap.get_virtual_price())
             .div(await core.getPricePerFullShare())
             .div(_1e18)
-            .add(1)
+            .add(1) // round-off nuance
         const calcRedeem = await badgerPeak.calcRedeem(0, bbtcAmount)
-        console.log({
-            peakBal: peakBal.toString(),
-            bbtcAmount: bbtcAmount.toString(),
-            calcRedeem: calcRedeem.toString()
-        })
-        // console.log({
-        //     bbtcAmount: bbtcAmount.toString(),
-        //     bbtcBal: (await bBTC.balanceOf(alice)).toString()
-        // })
         await testRedeem(0, 'sbtc', bbtcAmount)
         expect(await sett.balanceOf(badgerPeak.address)).to.eq(ZERO)
     });
@@ -174,7 +159,7 @@ describe.only('BadgerSettPeak + SaddlePeak (fork)', function() {
             .mul(await swap.get_virtual_price())
             .div(await core.getPricePerFullShare())
             .div(_1e18)
-            .add(1)
+            .add(1) // round-off nuance
         await testRedeem(1, 'ren', bbtcAmount)
         expect(await sett.balanceOf(badgerPeak.address)).to.eq(ZERO)
     });
@@ -187,35 +172,27 @@ describe.only('BadgerSettPeak + SaddlePeak (fork)', function() {
             .mul(await swap.get_virtual_price())
             .div(await core.getPricePerFullShare())
             .div(_1e18)
-            .add(1)
+            .add(1) // round-off nuance
         await testRedeem(2, 'tbtc', bbtcAmount)
         expect(await sett.balanceOf(badgerPeak.address)).to.eq(ZERO)
     });
 
     it('redeem in saddleTWRenSBTC', async function() {
-        const peakBal = await saddleTWRenSBTC.balanceOf(saddlePeak.address)
-        const bbtcAmount = peakBal
-            .mul(await saddleSwap.getVirtualPrice())
-            .div(await core.getPricePerFullShare())
-        console.log({
-            bbtcAmount: bbtcAmount.toString(),
-            'bBTC': (await bBTC.balanceOf(alice)).toString(),
-        })
+        // const bbtcAmount = (await saddleTWRenSBTC.balanceOf(saddlePeak.address))
+        //     .mul(await saddleSwap.getVirtualPrice())
+        //     .div(await core.getPricePerFullShare())
+        const bbtcAmount = await bBTC.balanceOf(alice)
         await testRedeemInCurveLP(0, bbtcAmount, [ saddlePeak, saddleTWRenSBTC, saddleSwap ])
-        expect(await saddleTWRenSBTC.balanceOf(saddlePeak.address)).to.eq(BigNumber.from(1)) // dust
+        expect((await saddleTWRenSBTC.balanceOf(saddlePeak.address)).lt(BigNumber.from(5))).to.be.true // dust
     });
 
-    it('bBTC.balanceOf()', async function() {
+    it('sanity checks', async function() {
         expect(await bBTC.balanceOf(alice)).to.eq(ZERO)
         expect(await bBTC.totalSupply()).to.eq(ZERO)
         expect(await bBTC.getPricePerFullShare()).to.eq(_1e18)
         expect(await core.getPricePerFullShare()).to.eq(_1e18)
-        expect(await core.totalSystemAssets()).to.eq(BigNumber.from(1)) // dust
-        // console.log({
-        //     'bBTC': (await bBTC.balanceOf(alice)).toString(),
-        //     'ppfs': (await core.getPricePerFullShare()).toString(),
-        //     'totalSystemAssets': (await core.totalSystemAssets()).toString()
-        // })
+        expect((await core.totalSystemAssets()).lt(BigNumber.from(5))).to.be.true // dust
+        expect(await core.accumulatedFee()).to.eq(ZERO)
     })
 
     async function testMintWithCurveLP(poolId, amount, [ peak, curveLPToken, swap ]) {
