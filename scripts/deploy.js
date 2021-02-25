@@ -28,7 +28,7 @@ async function main() {
     const feeSink = signers[9].address
     await Promise.all([
         core.whitelistPeak(badgerPeak.address),
-        core.setConfig(9990, 9990, feeSink),
+        core.setConfig(10, 10, feeSink),
         badgerPeak.modifyWhitelistedCurvePools([{ lpToken: curveLPToken.address, swap: swap.address, sett: sett.address }])
     ])
     const config = {

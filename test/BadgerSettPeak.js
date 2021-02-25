@@ -38,6 +38,15 @@ describe('BadgerSettPeak', function() {
         expect(await core.accumulatedFee()).to.eq(_fee)
     })
 
+    it('setPeakStatus', async function() {
+        expect(await core.peaks(badgerPeak.address)).to.eq(1)
+        await core.setPeakStatus(badgerPeak.address, 1 /* Active */)
+        expect(await core.peaks(badgerPeak.address)).to.eq(1)
+        await core.setPeakStatus(badgerPeak.address, 2 /* Dormant */)
+        expect(await core.peaks(badgerPeak.address)).to.eq(2)
+    })
+
+    // redeem works for dormant peak
     it('redeem', async function() {
         const [ aliceBbtc, accumulatedFee ] = await Promise.all([
             bBTC.balanceOf(alice),
@@ -51,6 +60,16 @@ describe('BadgerSettPeak', function() {
         expect(aliceBbtc.sub(amount)).to.eq(await bBTC.balanceOf(alice));
         expect(amount.sub(_fee)).to.eq(await sett.balanceOf(alice));
         expect(await core.accumulatedFee()).to.eq(_fee.add(accumulatedFee))
+    })
+
+    it('redeem fails for Extinct peak', async function() {
+        await core.setPeakStatus(badgerPeak.address, 0 /* Extinct */)
+        expect(await core.peaks(badgerPeak.address)).to.eq(0)
+        try {
+            await badgerPeak.redeem(0, await bBTC.balanceOf(alice))
+        } catch (e) {
+            expect(e.message).to.eq('VM Exception while processing transaction: revert PEAK_EXTINCT')
+        }
     })
 
     it('collectFee', async function() {

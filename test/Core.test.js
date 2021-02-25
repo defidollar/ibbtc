@@ -48,11 +48,27 @@ describe('Core', function() {
 
     it('setPeakStatus', async function() {
         expect(await core.peaks(badgerPeak.address)).to.eq(1)
-        await core.setPeakStatus(badgerPeak.address, 1 /* Extinct */)
+        await core.setPeakStatus(badgerPeak.address, 1 /* Active */)
         expect(await core.peaks(badgerPeak.address)).to.eq(1)
         await core.setPeakStatus(badgerPeak.address, 2 /* Dormant */)
         expect(await core.peaks(badgerPeak.address)).to.eq(2)
-        await core.setPeakStatus(badgerPeak.address, 0 /* Active */)
+        await core.setPeakStatus(badgerPeak.address, 0 /* Extinct */)
         expect(await core.peaks(badgerPeak.address)).to.eq(0)
+    })
+
+    it('mint fails from unwhitelisted peak', async function() {
+        try {
+            await core.mint(1, alice)
+        } catch (e) {
+            expect(e.message).to.eq('VM Exception while processing transaction: revert PEAK_INACTIVE')
+        }
+    })
+
+    it('redeem fails from unwhitelisted peak', async function() {
+        try {
+            await core.redeem(1, alice)
+        } catch (e) {
+            expect(e.message).to.eq('VM Exception while processing transaction: revert PEAK_EXTINCT')
+        }
     })
 })
