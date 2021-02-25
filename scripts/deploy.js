@@ -19,20 +19,20 @@ async function main() {
     await core.updateImplementation((await Core.deploy(bBtc.address)).address)
     core = await ethers.getContractAt('Core', core.address)
 
-    let curveBtcPeak = await UpgradableProxy.deploy()
-    await curveBtcPeak.updateImplementation((await BadgerSettPeak.deploy(core.address, bBtc.address)).address)
-    curveBtcPeak = await ethers.getContractAt('BadgerSettPeak', curveBtcPeak.address)
+    let badgerPeak = await UpgradableProxy.deploy()
+    await badgerPeak.updateImplementation((await BadgerSettPeak.deploy(core.address)).address)
+    badgerPeak = await ethers.getContractAt('BadgerSettPeak', badgerPeak.address)
 
     const sett = await Sett.deploy(curveLPToken.address)
     const signers = await ethers.getSigners()
     const feeSink = signers[9].address
     await Promise.all([
-        core.whitelistPeak(curveBtcPeak.address),
-        curveBtcPeak.modifyConfig(9990, 9990, feeSink),
-        curveBtcPeak.modifyWhitelistedCurvePools([{ lpToken: curveLPToken.address, swap: swap.address, sett: sett.address }])
+        core.whitelistPeak(badgerPeak.address),
+        core.setConfig(9990, 9990, feeSink),
+        badgerPeak.modifyWhitelistedCurvePools([{ lpToken: curveLPToken.address, swap: swap.address, sett: sett.address }])
     ])
     const config = {
-        BadgerPeak: curveBtcPeak.address,
+        BadgerPeak: badgerPeak.address,
         bcrvRenWSBTC: sett.address,
         bBtc: bBtc.address
     }
