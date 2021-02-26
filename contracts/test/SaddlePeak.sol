@@ -85,14 +85,9 @@ contract SaddlePeak is AccessControlDefended, IPeak {
 
     /* ##### View ##### */
 
-    function calcMint(uint poolId, uint inAmount) override external view returns(uint bBtc) {
-        (bBtc,) = core.btcToBbtc(_settToBtc(pools[poolId], inAmount));
-    }
+    function calcMint(uint poolId, uint inAmount) override external view returns(uint, uint) {}
 
-    function calcRedeem(uint poolId, uint _bBtc) override external view returns(uint) {
-        (uint btc,) = core.bBtcToBtc(_bBtc);
-        return _btcToSett(pools[poolId], btc);
-    }
+    function calcRedeem(uint poolId, uint bBtc) override external view returns(uint,uint,uint) {}
 
     function portfolioValue()
         override

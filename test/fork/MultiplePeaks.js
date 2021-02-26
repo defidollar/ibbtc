@@ -255,7 +255,7 @@ describe('BadgerSettPeak + SaddlePeak (fork)', function() {
             .mul(_1e18)
             .div(ppfs)
             .div(virtualPrice)
-        expect(calcRedeem).to.eq(expected)
+        expect(calcRedeem.sett).to.eq(expected)
 
         await badgerPeak.redeem(poolId, amount)
 
@@ -312,7 +312,7 @@ describe('BadgerSettPeak + SaddlePeak (fork)', function() {
         }
         const fee = mintedBbtc.mul(mintAndRedeemFee).div(PRECISION)
         const expectedBbtc = mintedBbtc.sub(fee)
-        expect(calcMint).to.eq(expectedBbtc)
+        expect(calcMint.bBTC).to.eq(expectedBbtc)
 
         await sett.approve(peak.address, amount)
         await peak.mint(poolId, amount)

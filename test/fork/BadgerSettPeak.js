@@ -121,7 +121,7 @@ describe('BadgerSettPeak (fork)', function() {
             peakSettLPBal,
             totalSupply,
             accumulatedFee,
-            expectedMint
+            calcMint
         ] = await Promise.all([
             sett.getPricePerFullShare(),
             swap.get_virtual_price(),
@@ -144,22 +144,16 @@ describe('BadgerSettPeak (fork)', function() {
         }
         const fee = mintedBbtc.mul(mintAndRedeemFee).div(PRECISION)
         const expectedBbtc = mintedBbtc.sub(fee)
-        expect(expectedMint).to.eq(expectedBbtc)
+        expect(calcMint.bBTC).to.eq(expectedBbtc)
 
         await sett.approve(peak.address, amount)
         await peak.mint(poolId, amount)
-        // console.log({
-        //     expectedBbtc: expectedBbtc.toString(),
-        //     expectedMint: expectedMint.toString(),
-        //     actual: (await bBTC.balanceOf(alice)).sub(aliceBbtcBal).toString()
-        // })
         await assertions(
             peak,
             curveLPToken,
             [
                 aliceCrvBal, // curveLPToken.balanceOf(alice)
-                aliceBbtcBal.add(expectedMint), // bBTC.balanceOf(alice)
-                // aliceBbtcBal.add(expectedBbtc), // bBTC.balanceOf(alice)
+                aliceBbtcBal.add(expectedBbtc), // bBTC.balanceOf(alice)
                 peakCrvLPBal, // curveLPToken.balanceOf(peak.address)
                 accumulatedFee.add(fee) // core.accumulatedFee()
             ]

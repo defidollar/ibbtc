@@ -86,13 +86,26 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
 
     /* ##### View ##### */
 
-    function calcMint(uint poolId, uint inAmount) override external view returns(uint bBtc) {
-        (bBtc,) = core.btcToBbtc(_settToBtc(pools[poolId], inAmount));
+    function calcMint(uint poolId, uint inAmount) override external view returns(uint bBTC, uint fee) {
+        (bBTC, fee) = core.btcToBbtc(_settToBtc(pools[poolId], inAmount));
     }
 
-    function calcRedeem(uint poolId, uint bBtc) override external view returns(uint) {
-        (uint btc,) = core.bBtcToBtc(bBtc);
-        return _btcToSett(pools[poolId], btc);
+    /**
+    * @notice Determines the Sett tokens that will be received when redeeming bBTC
+    * @return sett Number of sett tokens
+    * @return fee Fee charges
+    * @return max Max amount of bBTC redeemable for chosen sett
+    */
+    function calcRedeem(uint poolId, uint bBtc) override external view returns(uint sett, uint fee, uint max) {
+        CurvePool memory pool = pools[poolId];
+        uint btc;
+        (btc, fee) = core.bBtcToBtc(bBtc);
+        sett = _btcToSett(pool, btc);
+        max = pool.sett.balanceOf(address(this))
+            .mul(pool.sett.getPricePerFullShare())
+            .mul(pool.swap.get_virtual_price())
+            .div(core.getPricePerFullShare())
+            .div(1e18);
     }
 
     function portfolioValue()

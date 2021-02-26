@@ -47,11 +47,14 @@ describe('Core', function() {
     });
 
     it('setPeakStatus', async function() {
-        expect(await core.peaks(badgerPeak.address)).to.eq(1)
-        await core.setPeakStatus(badgerPeak.address, 1 /* Active */)
-        expect(await core.peaks(badgerPeak.address)).to.eq(1)
+        expect(await core.peaks(badgerPeak.address)).to.eq(1) // Active
+
         await core.setPeakStatus(badgerPeak.address, 2 /* Dormant */)
         expect(await core.peaks(badgerPeak.address)).to.eq(2)
+
+        await core.setPeakStatus(badgerPeak.address, 1 /* Active */)
+        expect(await core.peaks(badgerPeak.address)).to.eq(1) // Active
+
         await core.setPeakStatus(badgerPeak.address, 0 /* Extinct */)
         expect(await core.peaks(badgerPeak.address)).to.eq(0)
     })

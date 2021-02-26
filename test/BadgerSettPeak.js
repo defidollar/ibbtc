@@ -40,8 +40,6 @@ describe('BadgerSettPeak', function() {
 
     it('setPeakStatus', async function() {
         expect(await core.peaks(badgerPeak.address)).to.eq(1)
-        await core.setPeakStatus(badgerPeak.address, 1 /* Active */)
-        expect(await core.peaks(badgerPeak.address)).to.eq(1)
         await core.setPeakStatus(badgerPeak.address, 2 /* Dormant */)
         expect(await core.peaks(badgerPeak.address)).to.eq(2)
     })
@@ -107,8 +105,9 @@ describe('Zero fee and redeem all', function() {
         ])
         await sett.deposit(amount)
 
-        const aliceBtc = amount//.sub(1) // round-down; no-fee
-        expect(await badgerPeak.calcMint(0, amount)).to.eq(aliceBtc)
+        const aliceBtc = amount
+        const calcMint = await badgerPeak.calcMint(0, amount)
+        expect(calcMint.bBTC).to.eq(aliceBtc)
 
         await sett.approve(badgerPeak.address, amount)
         await badgerPeak.mint(0, amount)
@@ -121,14 +120,16 @@ describe('Zero fee and redeem all', function() {
 
     it('redeem', async function() {
         const amount = await bBTC.balanceOf(alice)
+
+        const calcRedeem = await badgerPeak.calcRedeem(0, amount)
         // with 0 fee, everything can be redeemed
-        expect(await badgerPeak.calcRedeem(0, amount)).to.eq(amount)
+        expect(calcRedeem.sett).to.eq(amount)
 
         await badgerPeak.redeem(0, amount)
 
         expect(await bBTC.balanceOf(alice)).to.eq(ZERO)
         expect(await sett.balanceOf(alice)).to.eq(amount)
-        // expect(await sett.balanceOf(badgerPeak.address)).to.eq(BigNumber.from(1)) // dust-left over from round-down during mint
+        expect(await sett.balanceOf(badgerPeak.address)).to.eq(ZERO)
         expect(await core.accumulatedFee()).to.eq(ZERO)
     })
 

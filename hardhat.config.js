@@ -10,7 +10,10 @@ module.exports = {
     networks: {
         local: {
             url: 'http://localhost:8545'
-        }
+        },
+        hardhat: {
+            chainId: 1337,
+        },
     },
     solidity: {
         version: '0.6.11',

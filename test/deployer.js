@@ -10,17 +10,17 @@ const signer = ethers.provider.getSigner(wBTCWhale)
 
 const crvPools = {
     sbtc: {
-        lpToken: '0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3',
+        lpToken: '0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3', // crvRenWSBTC
         swap: '0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714',
         sett: '0xd04c48A53c111300aD41190D63681ed3dAd998eC'
     },
     ren: {
-        lpToken: '0x49849C98ae39Fff122806C06791Fa73784FB3675',
+        lpToken: '0x49849C98ae39Fff122806C06791Fa73784FB3675', // crvRenWBTC
         swap: '0x93054188d876f558f4a66B2EF1d97d16eDf0895B',
         sett: '0x6dEf55d2e18486B9dDfaA075bc4e4EE0B28c1545'
     },
     tbtc: {
-        lpToken: '0x64eda51d3Ad40D56b9dFc5554E06F94e1Dd786Fd',
+        lpToken: '0x64eda51d3Ad40D56b9dFc5554E06F94e1Dd786Fd', // tbtc/sbtcCrv
         swap: '0xC25099792E9349C7DD09759744ea681C7de2cb66',
         sett: '0xb9D076fDe463dbc9f915E5392F807315Bf940334'
     }
