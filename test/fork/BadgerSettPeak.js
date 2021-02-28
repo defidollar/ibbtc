@@ -8,7 +8,7 @@ const PRECISION = BigNumber.from(10000)
 const ZERO = BigNumber.from(0)
 const _1e18 = ethers.constants.WeiPerEther
 
-describe('BadgerSettPeak (fork)', function() {
+describe('BadgerSettPeak (mainnet-fork)', function() {
     before('setup contracts', async function() {
         signers = await ethers.getSigners()
         alice = signers[0].address

@@ -29,8 +29,8 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
 
     // END OF STORAGE VARIABLES
 
-    event Mint(address account, uint amount);
-    event Redeem(address account, uint amount);
+    event Mint(address account, uint ibBTC, uint sett);
+    event Redeem(address account, uint ibBTC, uint sett);
 
     /**
     * @param _core Address of the the Core contract
@@ -58,7 +58,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         outAmount = core.mint(_settToBtc(pool, inAmount), msg.sender);
         // will revert if user passed an unsupported poolId
         pool.sett.safeTransferFrom(msg.sender, address(this), inAmount);
-        emit Mint(msg.sender, outAmount);
+        emit Mint(msg.sender, outAmount, inAmount);
     }
 
     /**
@@ -81,7 +81,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         outAmount = _btcToSett(pool, core.redeem(inAmount, msg.sender));
         // will revert if the contract has insufficient funds.
         pool.sett.safeTransfer(msg.sender, outAmount);
-        emit Redeem(msg.sender, inAmount);
+        emit Redeem(msg.sender, inAmount, outAmount);
     }
 
     /* ##### View ##### */
@@ -161,7 +161,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
             .div(1e36);
     }
 
-    /* ##### onlyGovernance ##### */
+    /* ##### Governance ##### */
 
     /**
     * @notice Manage whitelisted curve pools and their respective sett vaults

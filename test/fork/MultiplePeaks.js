@@ -14,7 +14,7 @@ const saddle = {
 }
 const saddleTWRenSBTCWhale = '0xffd4dae0d7d8ddb6f408dca0a47763ae3a57f4ce'
 
-describe('BadgerSettPeak + SaddlePeak (fork)', function() {
+describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
     before('setup contracts', async function() {
         signers = await ethers.getSigners()
         alice = signers[0].address

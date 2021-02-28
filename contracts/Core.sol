@@ -130,7 +130,7 @@ contract Core is GovernableProxy, ICore {
         }
     }
 
-    /* ##### Admin ##### */
+    /* ##### Governance ##### */
 
     /**
     * @notice Whitelist a new peak
