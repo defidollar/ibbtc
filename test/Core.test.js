@@ -15,35 +15,19 @@ describe('Core', function() {
     })
 
     it('can\'t add duplicate peak', async function() {
-        try {
-            await core.whitelistPeak(badgerPeak.address)
-        }  catch (e) {
-            expect(e.message).to.eq('VM Exception while processing transaction: revert DUPLICATE_PEAK')
-        }
+        await expect(core.whitelistPeak(badgerPeak.address)).to.be.revertedWith('DUPLICATE_PEAK')
     })
 
     it('whitelistPeak fails from non-admin account', async function() {
-        try {
-            await core.connect(signers[1]).whitelistPeak(signers[8].address)
-        } catch (e) {
-            expect(e.message).to.eq('VM Exception while processing transaction: revert NOT_OWNER')
-        }
+        await expect(core.connect(signers[1]).whitelistPeak(signers[8].address)).to.be.revertedWith('NOT_OWNER')
     });
 
     it('whitelistPeak fails for non-contract account', async function() {
-        try {
-            await core.whitelistPeak(dummyPeak.address)
-        }  catch (e) {
-            expect(e.message).to.eq('Transaction reverted: function call to a non-contract account')
-        }
+        await expect(core.whitelistPeak(dummyPeak.address)).to.be.revertedWith('Transaction reverted: function call to a non-contract account')
     })
 
     it('setPeakStatus fails from non-admin account', async function() {
-        try {
-            await core.connect(signers[1]).setPeakStatus(badgerPeak.address, 2 /* Dormant */)
-        } catch (e) {
-            expect(e.message).to.eq('VM Exception while processing transaction: revert NOT_OWNER')
-        }
+        await expect(core.connect(signers[1]).setPeakStatus(badgerPeak.address, 2 /* Dormant */)).to.be.revertedWith('NOT_OWNER')
     });
 
     it('setPeakStatus', async function() {
@@ -60,18 +44,10 @@ describe('Core', function() {
     })
 
     it('mint fails from unwhitelisted peak', async function() {
-        try {
-            await core.mint(1, alice)
-        } catch (e) {
-            expect(e.message).to.eq('VM Exception while processing transaction: revert PEAK_INACTIVE')
-        }
+        await expect(core.mint(1, alice)).to.be.revertedWith('PEAK_INACTIVE')
     })
 
     it('redeem fails from unwhitelisted peak', async function() {
-        try {
-            await core.redeem(1, alice)
-        } catch (e) {
-            expect(e.message).to.eq('VM Exception while processing transaction: revert PEAK_EXTINCT')
-        }
+        await expect(core.redeem(1, alice)).to.be.revertedWith('PEAK_EXTINCT')
     })
 })

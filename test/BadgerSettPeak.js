@@ -63,11 +63,8 @@ describe('BadgerSettPeak', function() {
     it('redeem fails for Extinct peak', async function() {
         await core.setPeakStatus(badgerPeak.address, 0 /* Extinct */)
         expect(await core.peaks(badgerPeak.address)).to.eq(0)
-        try {
-            await badgerPeak.redeem(0, await bBTC.balanceOf(alice))
-        } catch (e) {
-            expect(e.message).to.eq('VM Exception while processing transaction: revert PEAK_EXTINCT')
-        }
+
+        await expect(badgerPeak.redeem(0, await bBTC.balanceOf(alice))).to.be.revertedWith('PEAK_EXTINCT')
     })
 
     it('collectFee', async function() {
@@ -134,10 +131,6 @@ describe('Zero fee and redeem all', function() {
     })
 
     it('collectFee reverts when fee=0', async function() {
-        try {
-            await core.collectFee()
-        } catch (e) {
-            expect(e.message).to.eq('VM Exception while processing transaction: revert NO_FEE')
-        }
+        await expect(core.collectFee()).to.be.revertedWith('NO_FEE')
     })
 })
