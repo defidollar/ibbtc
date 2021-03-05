@@ -38,7 +38,7 @@ async function setupMainnetContracts(feeSink) {
     const [ UpgradableProxy, BadgerSettPeak, Core, BBTC ] = await Promise.all([
         ethers.getContractFactory('UpgradableProxy'),
         ethers.getContractFactory('BadgerSettPeak'),
-        ethers.getContractFactory('Core'),
+        ethers.getContractFactory('CoreTest'),
         ethers.getContractFactory('bBTC'),
     ])
     let [ core, badgerPeak ] = await Promise.all([
@@ -104,7 +104,7 @@ async function setupContracts(feeSink) {
     const [ UpgradableProxy, BadgerSettPeak, Core, BBTC, CurveLPToken, Swap, Sett ] = await Promise.all([
         ethers.getContractFactory("UpgradableProxy"),
         ethers.getContractFactory("BadgerSettPeak"),
-        ethers.getContractFactory("Core"),
+        ethers.getContractFactory("CoreTest"),
         ethers.getContractFactory("bBTC"),
         ethers.getContractFactory("CurveLPToken"),
         ethers.getContractFactory("Swap"),

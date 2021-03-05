@@ -171,11 +171,14 @@ contract Core is GovernableProxy, ICore {
     * @param _feeSink Address of the EOA/contract where accumulated fee will be transferred
     */
     function setConfig(uint _mintFee, uint _redeemFee, address _feeSink)
+        virtual
         external
         onlyGovernance
     {
         require(
-            _mintFee <= PRECISION
+            _mintFee > 0
+            && _mintFee <= PRECISION
+            && _redeemFee > 0
             && _redeemFee <= PRECISION,
             "INVALID_PARAMETERS"
         );
