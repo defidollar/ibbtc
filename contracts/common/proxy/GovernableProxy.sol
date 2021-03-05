@@ -9,6 +9,11 @@ contract GovernableProxy {
         _transferOwnership(msg.sender);
     }
 
+    modifier onlyGovernance() {
+        require(owner() == msg.sender, "NOT_OWNER");
+        _;
+    }
+
     /**
      * @dev Returns the address of the current owner.
      */
@@ -17,15 +22,6 @@ contract GovernableProxy {
         assembly {
             _owner := sload(position)
         }
-    }
-
-    modifier onlyGovernance() {
-        require(isOwner(), "NOT_OWNER");
-        _;
-    }
-
-    function isOwner() public view returns (bool) {
-        return owner() == msg.sender;
     }
 
     /**
