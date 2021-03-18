@@ -114,8 +114,9 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         returns (uint assets)
     {
         CurvePool memory pool;
+        uint _numPools = numPools;
         // We do not expect to have more than 3-4 pools, so this loop should be fine
-        for (uint i = 0; i < numPools; i++) {
+        for (uint i = 0; i < _numPools; i++) {
             pool = pools[i];
             assets = assets.add(
                 _settToBtc(
@@ -171,13 +172,15 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         external
         onlyGovernance
     {
+        CurvePool memory pool;
         for (uint i = 0; i < _pools.length; i++) {
+            pool = _pools[i];
             require(
-                address(_pools[i].swap) != address(0)
-                && address(_pools[i].sett) != address(0),
+                address(pool.swap) != address(0)
+                && address(pool.sett) != address(0),
                 "NULL_ADDRESS"
             );
-            pools[i] = CurvePool(_pools[i].swap, _pools[i].sett);
+            pools[i] = pool;
         }
 
         // clear older pools
