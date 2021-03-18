@@ -111,10 +111,11 @@ contract Core is GovernableProxy, ICore {
     */
     function collectFee() external {
         require(feeSink != address(0), "NULL_ADDRESS");
-        require(accumulatedFee > 0, "NO_FEE");
-        bBTC.mint(feeSink, accumulatedFee);
-        emit FeeCollected(accumulatedFee);
+        uint _fee = accumulatedFee;
+        require(_fee > 0, "NO_FEE");
         accumulatedFee = 0;
+        bBTC.mint(feeSink, _fee);
+        emit FeeCollected(_fee);
     }
 
     function totalSystemAssets() public view returns (uint totalAssets) {
