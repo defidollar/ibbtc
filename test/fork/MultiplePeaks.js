@@ -61,7 +61,6 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
         expect((await badgerPeak.numPools()).toString()).to.eq('3')
         for (let i = 0; i < 3; i++) {
             const pool = await badgerPeak.pools(i)
-            expect(pool.lpToken).to.eq(pools[i].lpToken)
             expect(pool.swap).to.eq(pools[i].swap)
             expect(pool.sett).to.eq(pools[i].sett)
         }

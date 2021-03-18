@@ -14,7 +14,7 @@ describe('BadgerSettPeak', function() {
         alice = signers[0].address
         feeSink = signers[9].address
         artifacts = await deployer.setupContracts(feeSink)
-        ;({ curveLPToken, badgerPeak, bBTC, sett, core } = artifacts)
+        ;({ curveLPToken, badgerPeak, bBTC, swap, sett, core } = artifacts)
     })
 
     it('mint', async function() {
@@ -74,6 +74,46 @@ describe('BadgerSettPeak', function() {
 
         expect(await bBTC.balanceOf(feeSink)).to.eq(accumulatedFee);
         expect(await core.accumulatedFee()).to.eq(ZERO)
+    })
+
+    it('modifyWhitelistedCurvePools', async function() {
+        let pool = await badgerPeak.pools(0)
+        expect(pool.swap).to.eq(swap.address)
+        expect(pool.sett).to.eq(sett.address)
+        expect((await badgerPeak.numPools()).toString()).to.eq('1')
+
+        const [ Swap, Sett ] = await Promise.all([
+            ethers.getContractFactory("Swap"),
+            ethers.getContractFactory("Sett")
+        ])
+        const swap2 = await Swap.deploy()
+        const sett2 = await Sett.deploy(curveLPToken.address)
+        await badgerPeak.modifyWhitelistedCurvePools([
+            { swap: swap2.address, sett: sett2.address },
+            { swap: swap.address, sett: sett.address }
+        ])
+        expect((await badgerPeak.numPools()).toString()).to.eq('2')
+
+        pool = await badgerPeak.pools(0)
+        expect(pool.swap).to.eq(swap2.address)
+        expect(pool.sett).to.eq(sett2.address)
+
+        pool = await badgerPeak.pools(1)
+        expect(pool.swap).to.eq(swap.address)
+        expect(pool.sett).to.eq(sett.address)
+
+        await badgerPeak.modifyWhitelistedCurvePools([
+            { swap: swap.address, sett: sett.address }
+        ])
+        expect((await badgerPeak.numPools()).toString()).to.eq('1')
+
+        pool = await badgerPeak.pools(0)
+        expect(pool.swap).to.eq(swap.address)
+        expect(pool.sett).to.eq(sett.address)
+
+        pool = await badgerPeak.pools(1)
+        expect(pool.swap).to.eq('0x0000000000000000000000000000000000000000')
+        expect(pool.sett).to.eq('0x0000000000000000000000000000000000000000')
     })
 });
 

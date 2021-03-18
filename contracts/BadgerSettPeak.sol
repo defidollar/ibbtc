@@ -171,16 +171,21 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         external
         onlyGovernance
     {
-        numPools = _pools.length;
-        CurvePool memory pool;
-        for (uint i = 0; i < numPools; i++) {
-            pool = _pools[i];
+        for (uint i = 0; i < _pools.length; i++) {
             require(
-                address(pool.swap) != address(0)
-                && address(pool.sett) != address(0),
+                address(_pools[i].swap) != address(0)
+                && address(_pools[i].sett) != address(0),
                 "NULL_ADDRESS"
             );
-            pools[i] = CurvePool(pool.swap, pool.sett);
+            pools[i] = CurvePool(_pools[i].swap, _pools[i].sett);
         }
+
+        // clear older pools
+        if (numPools > _pools.length) {
+            for (uint i = _pools.length; i < numPools; i++) {
+                delete pools[i];
+            }
+        }
+        numPools = _pools.length;
     }
 }
