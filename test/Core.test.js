@@ -50,4 +50,8 @@ describe('Core', function() {
     it('redeem fails from unwhitelisted peak', async function() {
         await expect(core.redeem(1, alice)).to.be.revertedWith('PEAK_EXTINCT')
     })
+
+    it('can\'t set null fee sink', async function() {
+        await expect(core.setConfig(10, 10, '0x0000000000000000000000000000000000000000')).to.be.revertedWith('NULL_ADDRESS')
+    })
 })
