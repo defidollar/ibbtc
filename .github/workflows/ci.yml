@@ -34,3 +34,7 @@ jobs:
       env:
         ALCHEMY: ${{ secrets.ALCHEMY }}
       run: npm t
+    - name: Dry Run Tests
+      env:
+        ALCHEMY: ${{ secrets.ALCHEMY }}
+      run: npm run test:dryrun

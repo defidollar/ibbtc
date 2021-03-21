@@ -25,11 +25,19 @@ function getPricePerFullShare() override public view returns (uint) {
 ```
 `getPricePerFullShare()` is used to determine the bBTC:bSett exchange rate.
 
-## Development
-Needs [Alchemy](alchemyapi.io) API key. `export ALCHEMY=<API_KEY>`
+## Compile
 ```
 npm run compile
+```
+
+## Tests
+Needs [Alchemy](alchemyapi.io) API key. `export ALCHEMY=<API_KEY>`
+```
 npm t
+```
+- Run against deployed contracts
+```
+npm run test:dryrun
 ```
 
 ## Deployments
