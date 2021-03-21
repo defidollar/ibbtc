@@ -1,12 +1,13 @@
-const fs = require('fs')
 const { expect } = require("chai");
 const { BigNumber } = ethers
 
-const blockNumber = 11892010
+const blockNumber = 12080365
 const wbtcWhaleBalance = BigNumber.from(150).mul(1e8) // wbtc has 8 decimals
 const wBTC = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599'
 const wBTCWhale = '0x875abe6f1e2aba07bed4a3234d8555a0d7656d12'
 const signer = ethers.provider.getSigner(wBTCWhale)
+
+const deployer = '0x08F7506E0381f387e901c9D0552cf4052A0740a4'
 
 const crvPools = {
     sbtc: {
@@ -36,29 +37,47 @@ async function setupMainnetContracts(feeSink) {
             }
         }]
     })
-    const [ UpgradableProxy, BadgerSettPeak, Core, BBTC ] = await Promise.all([
-        ethers.getContractFactory('UpgradableProxy'),
-        ethers.getContractFactory('BadgerSettPeak'),
-        ethers.getContractFactory('Core'),
-        ethers.getContractFactory('bBTC'),
-    ])
-    let [ core, badgerPeak ] = await Promise.all([
-        UpgradableProxy.deploy(),
-        UpgradableProxy.deploy()
-    ])
-    const bBTC = await BBTC.deploy(core.address)
-    await core.updateImplementation((await Core.deploy(bBTC.address)).address)
-    await badgerPeak.updateImplementation((await BadgerSettPeak.deploy(core.address)).address)
-    ;([ core, badgerPeak ] = await Promise.all([
-        ethers.getContractAt('Core', core.address),
-        ethers.getContractAt('BadgerSettPeak', badgerPeak.address),
-    ]))
-    await Promise.all([
-        core.whitelistPeak(badgerPeak.address),
-        core.setConfig(10, 10, feeSink)
-    ])
     await impersonateAccount(wBTCWhale)
-    return { badgerPeak, bBTC, core }
+
+    if (process.env.DRYRUN === 'true') {
+        const config = require('../deployments/mainnet.json')
+        console.log('Using deployed contracts', config)
+
+        await impersonateAccount(deployer)
+        let core = await ethers.getContractAt('UpgradableProxy', config.core)
+        let badgerPeak = await ethers.getContractAt('UpgradableProxy', config.badgerPeak)
+        await core.connect(ethers.provider.getSigner(deployer)).transferOwnership((await ethers.getSigners())[0].address)
+        await badgerPeak.connect(ethers.provider.getSigner(deployer)).transferOwnership((await ethers.getSigners())[0].address)
+
+        return {
+            badgerPeak: await ethers.getContractAt('BadgerSettPeak', config.badgerPeak),
+            bBTC: await ethers.getContractAt('bBTC', config.bBtc),
+            core: await ethers.getContractAt('Core', config.core)
+        }
+    } else {
+        const [ UpgradableProxy, BadgerSettPeak, Core, BBTC ] = await Promise.all([
+            ethers.getContractFactory('UpgradableProxy'),
+            ethers.getContractFactory('BadgerSettPeak'),
+            ethers.getContractFactory('Core'),
+            ethers.getContractFactory('bBTC'),
+        ])
+        let [ core, badgerPeak ] = await Promise.all([
+            UpgradableProxy.deploy(),
+            UpgradableProxy.deploy()
+        ])
+        const bBTC = await BBTC.deploy(core.address)
+        await core.updateImplementation((await Core.deploy(bBTC.address)).address)
+        await badgerPeak.updateImplementation((await BadgerSettPeak.deploy(core.address)).address)
+        ;([ core, badgerPeak ] = await Promise.all([
+            ethers.getContractAt('Core', core.address),
+            ethers.getContractAt('BadgerSettPeak', badgerPeak.address),
+        ]))
+        await Promise.all([
+            core.whitelistPeak(badgerPeak.address),
+            core.setConfig(10, 10, feeSink)
+        ])
+        return { badgerPeak, bBTC, core }
+    }
 }
 
 async function getPoolContracts(pool) {

@@ -13,7 +13,7 @@ const saddle = {
     lpToken: '0xC28DF698475dEC994BE00C9C9D8658A548e6304F', // saddleTWRenSBTC
     swap: '0x4f6A43Ad7cba042606dECaCA730d4CE0A57ac62e'
 }
-const saddleTWRenSBTCWhale = '0xffd4dae0d7d8ddb6f408dca0a47763ae3a57f4ce'
+const saddleTWRenSBTCWhale = '0xc550c0d95fc2a8c56c093de17003dc9f741a6b00'
 
 describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
     before('setup contracts', async function() {
@@ -75,7 +75,8 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
     })
 
     it('mint with saddleTWRenSBTC', async function() {
-        let amount = BigNumber.from(9).mul(BigNumber.from(10).pow(17)) // 0.9
+        // let amount = BigNumber.from(9).mul(BigNumber.from(10).pow(17)) // 0.9
+        let amount = _1e18.mul(10)
         await deployer.impersonateAccount(saddleTWRenSBTCWhale)
         // transfer from whale
         await saddleTWRenSBTC.connect(ethers.provider.getSigner(saddleTWRenSBTCWhale)).transfer(alice, amount)
@@ -154,7 +155,7 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
         //     .mul(await saddleSwap.getVirtualPrice())
         //     .div(await core.getPricePerFullShare())
         await testRedeemInCurveLP(0, await bBTC.balanceOf(alice), [ saddlePeak, saddleTWRenSBTC, saddleSwap ])
-        expect((await saddleTWRenSBTC.balanceOf(saddlePeak.address)).lte(BigNumber.from(2))).to.be.true // dust
+        expect((await saddleTWRenSBTC.balanceOf(saddlePeak.address)).lte(BigNumber.from(8))).to.be.true // dust
     });
 
     it('sanity checks', async function() {
@@ -162,7 +163,7 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
         expect(await bBTC.totalSupply()).to.eq(ZERO)
         expect(await bBTC.getPricePerFullShare()).to.eq(_1e18)
         expect(await core.getPricePerFullShare()).to.eq(_1e18)
-        expect((await core.totalSystemAssets()).lte(BigNumber.from(2))).to.be.true // dust
+        expect((await core.totalSystemAssets()).lte(BigNumber.from(8))).to.be.true // dust
         expect(await core.accumulatedFee()).to.eq(ZERO)
     })
 
