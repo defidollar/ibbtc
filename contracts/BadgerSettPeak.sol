@@ -20,7 +20,6 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
     ICore public immutable core;
 
     struct CurvePool {
-        IERC20 lpToken;
         ISwap swap;
         ISett sett;
     }
@@ -41,7 +40,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
 
     /**
     * @notice Mint bBTC with Sett LP token
-    * @dev Invoking pool.lpToken.safeTransferFrom() before core.mint(), will mess up core.totalSystemAssets() calculation
+    * @dev Invoking pool.sett.safeTransferFrom() before core.mint(), will mess up core.totalSystemAssets() calculation
     * @param poolId System internal ID of the whitelisted curve pool
     * @param inAmount Amount of Sett LP token to mint bBTC with
     * @return outAmount Amount of bBTC minted to user's account
@@ -64,7 +63,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
     /**
     * @notice Redeem bBTC in Sett LP tokens
     * @dev There might not be enough Sett LP to fulfill the request, in which case the transaction will revert
-    *      Invoking pool.lpToken.safeTransfer() before core.redeem(), will mess up core.totalSystemAssets() calculation
+    *      Invoking pool.sett.safeTransfer() before core.redeem(), will mess up core.totalSystemAssets() calculation
     * @param poolId System internal ID of the whitelisted curve pool
     * @param inAmount Amount of bBTC to redeem
     * @return outAmount Amount of Sett LP token
@@ -115,8 +114,9 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         returns (uint assets)
     {
         CurvePool memory pool;
+        uint _numPools = numPools;
         // We do not expect to have more than 3-4 pools, so this loop should be fine
-        for (uint i = 0; i < numPools; i++) {
+        for (uint i = 0; i < _numPools; i++) {
             pool = pools[i];
             assets = assets.add(
                 _settToBtc(
@@ -172,17 +172,23 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         external
         onlyGovernance
     {
-        numPools = _pools.length;
         CurvePool memory pool;
-        for (uint i = 0; i < numPools; i++) {
+        for (uint i = 0; i < _pools.length; i++) {
             pool = _pools[i];
             require(
-                address(pool.lpToken) != address(0)
-                && address(pool.swap) != address(0)
+                address(pool.swap) != address(0)
                 && address(pool.sett) != address(0),
                 "NULL_ADDRESS"
             );
-            pools[i] = CurvePool(pool.lpToken, pool.swap, pool.sett);
+            pools[i] = pool;
         }
+
+        // clear older pools
+        if (numPools > _pools.length) {
+            for (uint i = _pools.length; i < numPools; i++) {
+                delete pools[i];
+            }
+        }
+        numPools = _pools.length;
     }
 }

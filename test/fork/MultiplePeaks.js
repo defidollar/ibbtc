@@ -1,3 +1,4 @@
+const _ = require('lodash');
 const { expect } = require("chai");
 const { BigNumber } = ethers
 
@@ -55,12 +56,11 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
     })
 
     it('badgerPeak.modifyWhitelistedCurvePools', async function() {
-        const pools = Object.keys(deployer.crvPools).map(k => deployer.crvPools[k])
+        const pools = Object.keys(deployer.crvPools).map(k => _.pick(deployer.crvPools[k], ['swap', 'sett']))
         await badgerPeak.modifyWhitelistedCurvePools(pools)
         expect((await badgerPeak.numPools()).toString()).to.eq('3')
         for (let i = 0; i < 3; i++) {
             const pool = await badgerPeak.pools(i)
-            expect(pool.lpToken).to.eq(pools[i].lpToken)
             expect(pool.swap).to.eq(pools[i].swap)
             expect(pool.sett).to.eq(pools[i].sett)
         }

@@ -10,7 +10,7 @@ contract bBTC is ERC20, IbBTC {
 
     constructor(address _core)
         public
-        ERC20("Badger BTC", "bBTC")
+        ERC20("Interest-Bearing BTC", "ibBTC")
     {
         require(_core != address(0), "NULL_ADDRESS");
         core = _core;

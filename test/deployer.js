@@ -3,7 +3,6 @@ const { BigNumber } = ethers
 
 const blockNumber = 11892010
 const wbtcWhaleBalance = BigNumber.from(150).mul(1e8) // wbtc has 8 decimals
-// const badgerDevMultisig = '0xB65cef03b9B89f99517643226d76e286ee999e77'
 const wBTC = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599'
 const wBTCWhale = '0x875abe6f1e2aba07bed4a3234d8555a0d7656d12'
 const signer = ethers.provider.getSigner(wBTCWhale)
@@ -39,7 +38,7 @@ async function setupMainnetContracts(feeSink) {
     const [ UpgradableProxy, BadgerSettPeak, Core, BBTC ] = await Promise.all([
         ethers.getContractFactory('UpgradableProxy'),
         ethers.getContractFactory('BadgerSettPeak'),
-        ethers.getContractFactory('Core'),
+        ethers.getContractFactory('CoreTest'),
         ethers.getContractFactory('bBTC'),
     ])
     let [ core, badgerPeak ] = await Promise.all([
@@ -57,9 +56,6 @@ async function setupMainnetContracts(feeSink) {
         core.whitelistPeak(badgerPeak.address),
         core.setConfig(10, 10, feeSink)
     ])
-    // required for sett contracts whitelist
-    // await web3.eth.sendTransaction({ to: badgerDevMultisig, value: web3.utils.toWei('1'), from: (await ethers.getSigners())[0].address })
-    // await impersonateAccount(badgerDevMultisig)
     await impersonateAccount(wBTCWhale)
     return { badgerPeak, bBTC, core }
 
@@ -108,7 +104,7 @@ async function setupContracts(feeSink) {
     const [ UpgradableProxy, BadgerSettPeak, Core, BBTC, CurveLPToken, Swap, Sett ] = await Promise.all([
         ethers.getContractFactory("UpgradableProxy"),
         ethers.getContractFactory("BadgerSettPeak"),
-        ethers.getContractFactory("Core"),
+        ethers.getContractFactory("CoreTest"),
         ethers.getContractFactory("bBTC"),
         ethers.getContractFactory("CurveLPToken"),
         ethers.getContractFactory("Swap"),
@@ -132,7 +128,7 @@ async function setupContracts(feeSink) {
     await Promise.all([
         core.whitelistPeak(badgerPeak.address),
         core.setConfig(10, 10, feeSink), // 0.1% fee
-        badgerPeak.modifyWhitelistedCurvePools([{ lpToken: curveLPToken.address, swap: swap.address, sett: sett.address }])
+        badgerPeak.modifyWhitelistedCurvePools([{ swap: swap.address, sett: sett.address }])
     ])
     expect(await core.peaks(badgerPeak.address)).to.eq(1) // Active
     return { badgerPeak, curveLPToken, bBTC, sett, swap, core }
