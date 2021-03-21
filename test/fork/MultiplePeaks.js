@@ -19,7 +19,7 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
     before('setup contracts', async function() {
         signers = await ethers.getSigners()
         alice = signers[0].address
-        feeSink = signers[9].address
+        feeSink = '0x5b5cF8620292249669e1DCC73B753d01543D6Ac7' // DeFiDollar DAO Governance Multisig
         artifacts = await deployer.setupMainnetContracts(feeSink)
         ;({ badgerPeak, core, bBTC } = artifacts)
     })

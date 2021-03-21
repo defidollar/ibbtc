@@ -1,3 +1,4 @@
+const fs = require('fs')
 const { expect } = require("chai");
 const { BigNumber } = ethers
 
@@ -38,7 +39,7 @@ async function setupMainnetContracts(feeSink) {
     const [ UpgradableProxy, BadgerSettPeak, Core, BBTC ] = await Promise.all([
         ethers.getContractFactory('UpgradableProxy'),
         ethers.getContractFactory('BadgerSettPeak'),
-        ethers.getContractFactory('CoreTest'),
+        ethers.getContractFactory('Core'),
         ethers.getContractFactory('bBTC'),
     ])
     let [ core, badgerPeak ] = await Promise.all([
@@ -58,7 +59,6 @@ async function setupMainnetContracts(feeSink) {
     ])
     await impersonateAccount(wBTCWhale)
     return { badgerPeak, bBTC, core }
-
 }
 
 async function getPoolContracts(pool) {
@@ -104,7 +104,7 @@ async function setupContracts(feeSink) {
     const [ UpgradableProxy, BadgerSettPeak, Core, BBTC, CurveLPToken, Swap, Sett ] = await Promise.all([
         ethers.getContractFactory("UpgradableProxy"),
         ethers.getContractFactory("BadgerSettPeak"),
-        ethers.getContractFactory("CoreTest"),
+        ethers.getContractFactory("Core"),
         ethers.getContractFactory("bBTC"),
         ethers.getContractFactory("CurveLPToken"),
         ethers.getContractFactory("Swap"),
