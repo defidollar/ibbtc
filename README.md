@@ -34,42 +34,23 @@ npm t
 
 ## Deployments
 
-Local
+- Local
 ```
 npx hardhat node
 npx hardhat run scripts/deploy.js --network local
 ```
 Addresses will be written to `deployments/local.json`.
 
+- Mainnet
+```
+export PRIVATE_KEY=
+export INFURA_PROJECT_ID=
+
+npx hardhat run scripts/deployMainnet.js --network mainnet
+```
+Addresses will be written to `deployments/mainnet.json`.
+
 ## Coverage
 ```
 npm run coverage
 ```
-```
-----------------------------|----------|----------|----------|----------|----------------|
-File                        |  % Stmts | % Branch |  % Funcs |  % Lines |Uncovered Lines |
-----------------------------|----------|----------|----------|----------|----------------|
- contracts/                 |    96.25 |    55.88 |       96 |    95.12 |                |
-  BadgerSettPeak.sol        |      100 |       50 |      100 |      100 |                |
-  Core.sol                  |    95.83 |    57.14 |      100 |    93.88 |     70,106,125 |
-  bBTC.sol                  |    83.33 |       50 |       80 |    85.71 |             33 |
- contracts/common/          |       60 |       50 |       60 |    71.43 |                |
-  AccessControlDefended.sol |       60 |       50 |       60 |    71.43 |          25,29 |
- contracts/common/proxy/    |       85 |       60 |    84.62 |    88.89 |                |
-  GovernableProxy.sol       |     87.5 |       75 |    83.33 |    90.91 |             35 |
-  IERCProxy.sol             |      100 |      100 |      100 |      100 |                |
-  Proxy.sol                 |        0 |      100 |       50 |       50 |             36 |
-  UpgradableProxy.sol       |    90.91 |       50 |      100 |    92.86 |             38 |
- contracts/interfaces/      |      100 |      100 |      100 |      100 |                |
-  ICore.sol                 |      100 |      100 |      100 |      100 |                |
-  IPeak.sol                 |      100 |      100 |      100 |      100 |                |
-  ISett.sol                 |      100 |      100 |      100 |      100 |                |
-  ISwap.sol                 |      100 |      100 |      100 |      100 |                |
-  IbBTC.sol                 |      100 |      100 |      100 |      100 |                |
-----------------------------|----------|----------|----------|----------|----------------|
-All files                   |    92.38 |    56.25 |    88.37 |    92.24 |                |
-----------------------------|----------|----------|----------|----------|----------------|
-```
-
-
-
