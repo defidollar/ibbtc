@@ -75,7 +75,6 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
     })
 
     it('mint with saddleTWRenSBTC', async function() {
-        // let amount = BigNumber.from(9).mul(BigNumber.from(10).pow(17)) // 0.9
         let amount = _1e18.mul(10)
         await deployer.impersonateAccount(saddleTWRenSBTCWhale)
         // transfer from whale
