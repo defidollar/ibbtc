@@ -10,50 +10,36 @@ const PRECISION = BigNumber.from(10000)
 const ZERO = BigNumber.from(0)
 const _1e18 = ethers.constants.WeiPerEther
 
-const saddle = {
-    lpToken: '0xC28DF698475dEC994BE00C9C9D8658A548e6304F', // saddleTWRenSBTC
-    swap: '0x4f6A43Ad7cba042606dECaCA730d4CE0A57ac62e'
-}
-const saddleTWRenSBTCWhale = '0xc550c0d95fc2a8c56c093de17003dc9f741a6b00'
+const yvWBTCHolder = '0x5b908e3a23823fd9da157726736bacbff472976a'
 
-describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
+describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
     before('setup contracts', async function() {
         signers = await ethers.getSigners()
         alice = signers[0].address
         feeSink = '0x5b5cF8620292249669e1DCC73B753d01543D6Ac7' // DeFiDollar DAO Governance Multisig
-        artifacts = await deployer.setupMainnetContracts(feeSink)
-        ;({ badgerPeak, core, bBTC } = artifacts)
+        ;({ badgerPeak, core, bBTC } = await deployer.setupMainnetContracts(feeSink, 12174154))
+        yvWBTC = await ethers.getContractAt('IyvWBTC', '0x1Ae8Ccd120A05080d9A01C3B4F627F865685D091')
     })
 
-    it('saddlePeak.modifyWhitelistedCurvePools', async function() {
-        const [ UpgradableProxy, SaddlePeak] = await Promise.all([
+    it('deploy YearnWbtc Peak', async function() {
+        const [ UpgradableProxy, YearnWbtcPeak ] = await Promise.all([
             ethers.getContractFactory('UpgradableProxy'),
-            ethers.getContractFactory('SaddlePeak')
+            ethers.getContractFactory('YearnWbtcPeak')
         ])
-        saddlePeak = await UpgradableProxy.deploy()
-        await saddlePeak.updateImplementation(
-            (await SaddlePeak.deploy(core.address)).address
+        wbtcPeak = await UpgradableProxy.deploy()
+        await wbtcPeak.updateImplementation(
+            (await YearnWbtcPeak.deploy(core.address, yvWBTC.address)).address
         )
-        ;([ saddlePeak, saddleTWRenSBTC, saddleSwap ] = await Promise.all([
-            ethers.getContractAt('SaddlePeak', saddlePeak.address),
-            ethers.getContractAt('CurveLPToken', saddle.lpToken),
-            ethers.getContractAt('ISaddleSwap', saddle.swap)
-        ]))
-        const pools = [saddle]
-        await saddlePeak.modifyWhitelistedCurvePools(pools)
-        expect((await saddlePeak.numPools()).toString()).to.eq('1')
-        const pool = await saddlePeak.pools(0)
-        expect(pool.lpToken).to.eq(pool.lpToken)
-        expect(pool.swap).to.eq(pool.swap)
+        wbtcPeak = await ethers.getContractAt('YearnWbtcPeak', wbtcPeak.address)
     })
 
-    it('whitelist saddle peak', async function() {
-        expect(await core.peaks(saddlePeak.address)).to.eq(0) // Extinct
+    it('whitelist wbtc peak', async function() {
+        expect(await core.peaks(wbtcPeak.address)).to.eq(0) // Extinct
 
-        await core.whitelistPeak(saddlePeak.address)
+        await core.whitelistPeak(wbtcPeak.address)
 
-        expect(await core.peakAddresses(1)).to.eq(saddlePeak.address)
-        expect(await core.peaks(saddlePeak.address)).to.eq(1) // Active
+        expect(await core.peakAddresses(1)).to.eq(wbtcPeak.address)
+        expect(await core.peaks(wbtcPeak.address)).to.eq(1) // Active
     })
 
     it('badgerPeak.modifyWhitelistedCurvePools', async function() {
@@ -75,13 +61,33 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
         mintAndRedeemFee = ZERO
     })
 
-    it('mint with saddleTWRenSBTC', async function() {
-        let amount = _1e18.mul(10)
-        await impersonateAccount(saddleTWRenSBTCWhale)
-        // transfer from whale
-        await saddleTWRenSBTC.connect(ethers.provider.getSigner(saddleTWRenSBTCWhale)).transfer(alice, amount)
-        await testMintWithCurveLP(0, amount, [ saddlePeak, saddleTWRenSBTC, saddleSwap ])
-    });
+    it('mint with yvWBTC', async function() {
+        let amount = BigNumber.from(5).mul(1e7) // 0.5 yvWBTC
+        await impersonateAccount(yvWBTCHolder)
+        await yvWBTC.connect(ethers.provider.getSigner(yvWBTCHolder)).transfer(alice, amount)
+
+        // yvWBTC.pricePerShare() = 1e8, so exact same bBTC will be minted
+        let mintedBbtc = _1e18.mul(5).div(10)
+        const fee = mintedBbtc.mul(mintAndRedeemFee).div(PRECISION)
+        const expectedBbtc = mintedBbtc.sub(fee)
+
+        const calcMint = await wbtcPeak.calcMint(amount)
+        expect(calcMint.bBTC).to.eq(expectedBbtc)
+
+        await yvWBTC.approve(wbtcPeak.address, amount)
+        await wbtcPeak.mint(amount)
+
+        expect(await wbtcPeak.portfolioValue()).to.eq(mintedBbtc)
+        await yvWbtcAssertions(
+            wbtcPeak,
+            [
+                ZERO,
+                expectedBbtc,
+                amount,
+                fee
+            ]
+        )
+    })
 
     it('mint with bcrvRenWSBTC', async function() {
         let amount = _1e18.mul(10)
@@ -150,12 +156,36 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
         await testRedeem(2, 'tbtc')
     });
 
-    it('redeem in saddleTWRenSBTC', async function() {
-        // const bbtcAmount = (await saddleTWRenSBTC.balanceOf(saddlePeak.address))
-        //     .mul(await saddleSwap.getVirtualPrice())
-        //     .div(await core.getPricePerFullShare())
-        await testRedeemInCurveLP(0, await bBTC.balanceOf(alice), [ saddlePeak, saddleTWRenSBTC, saddleSwap ])
-        expect((await saddleTWRenSBTC.balanceOf(saddlePeak.address)).lte(BigNumber.from(8))).to.be.true // dust
+    it('redeem in yvWBTC', async function() {
+        // aliceBbtc = 499998553138746239
+        // core.bBtcToBtc(aliceBbtc) = 499999999999999999909214769325897064
+        // redeem-able yvWBTC = 49999999
+        const aliceBbtc = await bBTC.balanceOf(alice)
+        const calcRedeem = await wbtcPeak.calcRedeem(aliceBbtc)
+        expect(calcRedeem.sett.toString()).to.eq('49999999') // 0.499
+
+        // console.log({
+        //     aliceBbtc: aliceBbtc.toString(),
+        //     bBtcToBtc: (await core.bBtcToBtc(aliceBbtc)).btc.toString(),
+        //     sett: calcRedeem.sett.toString(),
+        //     fee: calcRedeem.fee.toString(),
+        //     max: calcRedeem.max.toString(),
+        // })
+
+        await wbtcPeak.redeem(await bBTC.balanceOf(alice))
+
+        // 5e7 - 49999999 = 1 yvWBTC = 1e10 in portfolio value
+        expect(await wbtcPeak.portfolioValue()).to.eq(BigNumber.from(1e10))
+        expect(await core.totalSystemAssets()).to.eq(BigNumber.from(1e10))
+        await yvWbtcAssertions(
+            wbtcPeak,
+            [
+                calcRedeem.sett,
+                ZERO,
+                BigNumber.from(1),
+                ZERO
+            ]
+        )
     });
 
     it('sanity checks', async function() {
@@ -163,66 +193,8 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
         expect(await bBTC.totalSupply()).to.eq(ZERO)
         expect(await bBTC.getPricePerFullShare()).to.eq(_1e18)
         expect(await core.getPricePerFullShare()).to.eq(_1e18)
-        expect((await core.totalSystemAssets()).lte(BigNumber.from(8))).to.be.true // dust
         expect(await core.accumulatedFee()).to.eq(ZERO)
     })
-
-    async function testMintWithCurveLP(poolId, amount, [ peak, curveLPToken, swap ]) {
-        const [ virtualPrice, totalSupply, aliceBbtcBal, accumulatedFee ] = await Promise.all([
-            swap.getVirtualPrice(),
-            bBTC.totalSupply(),
-            bBTC.balanceOf(alice),
-            core.accumulatedFee()
-        ])
-
-        await curveLPToken.approve(peak.address, amount)
-        await peak.mint(poolId, amount)
-
-        let mintedBbtc = amount.mul(virtualPrice).div(_1e18)
-        if (totalSupply.gt(ZERO)) {
-            mintedBbtc = mintedBbtc
-                .mul((await bBTC.totalSupply()).add(accumulatedFee))
-                .div(await core.totalSystemAssets())
-        }
-        const fee = mintedBbtc.mul(mintAndRedeemFee).div(PRECISION)
-        const aliceBbtc = mintedBbtc.sub(fee)
-
-        await assertions(
-            saddlePeak,
-            curveLPToken,
-            [
-                ZERO, // curveLPToken.balanceOf(alice)
-                aliceBbtcBal.add(aliceBbtc), // bBTC.balanceOf(alice)
-                amount, // curveLPToken.balanceOf(peak.address)
-                accumulatedFee.add(fee)
-            ]
-        )
-    }
-
-    async function testRedeemInCurveLP(poolId, amount, [ peak, curveLPToken, swap ]) {
-        const [ virtualPrice, aliceBbtc, peakCrvLPBal, accumulatedFee ] = await Promise.all([
-            swap.getVirtualPrice(),
-            bBTC.balanceOf(alice),
-            curveLPToken.balanceOf(peak.address),
-            core.accumulatedFee(),
-        ])
-        const fee = amount.mul(mintAndRedeemFee).div(PRECISION)
-        aliceCrvBal = amount.sub(fee)
-            .mul(await core.getPricePerFullShare())
-            .div(virtualPrice)
-        await peak.redeem(poolId, amount)
-
-        await assertions(
-            peak,
-            curveLPToken,
-            [
-                aliceCrvBal, // curveLPToken.balanceOf(alice)
-                aliceBbtc.sub(amount), // bBTC.balanceOf(alice)
-                peakCrvLPBal.sub(aliceCrvBal), // curveLPToken.balanceOf(badgerPeak.address)
-                accumulatedFee.add(fee) // core.accumulatedFee()
-            ]
-        )
-    }
 
     async function testRedeem(poolId, pool) {
         const [ curveLPToken, swap, sett ] = await deployer.getPoolContracts(pool)
@@ -232,7 +204,6 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
             .div(await core.getPricePerFullShare())
             .div(_1e18)
             .add(1) // round-off nuance
-
         const [
             virtualPrice,
             ppfs,
@@ -355,5 +326,18 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
     async function settAssertions(peak, sett, [ aliceSettLP, peakSettLP ]) {
         expect(aliceSettLP).to.eq(await sett.balanceOf(alice))
         expect(peakSettLP).to.eq(await sett.balanceOf(peak.address))
+    }
+
+    async function yvWbtcAssertions(peak, [ aliceYVwbtc, alicebtc, peakYVwbtc, accumulatedFee ]) {
+        const vals = await Promise.all([
+            yvWBTC.balanceOf(alice),
+            bBTC.balanceOf(alice),
+            yvWBTC.balanceOf(peak.address),
+            core.accumulatedFee()
+        ])
+        expect(aliceYVwbtc).to.eq(vals[0])
+        expect(alicebtc).to.eq(vals[1])
+        expect(peakYVwbtc).to.eq(vals[2])
+        expect(accumulatedFee).to.eq(vals[3])
     }
 });

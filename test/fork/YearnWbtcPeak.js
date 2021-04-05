@@ -2,6 +2,7 @@ const { expect } = require("chai")
 const { BigNumber } = ethers
 
 const deployer = require('../deployer');
+const { impersonateAccount } = require('../utils')
 
 const yvWBTCHolder = '0x5b908e3a23823fd9da157726736bacbff472976a'
 
@@ -25,30 +26,30 @@ describe('YearnWbtcPeak (mainnet-fork)', function() {
             ethers.getContractFactory('UpgradableProxy'),
             ethers.getContractFactory('YearnWbtcPeak')
         ])
-        saddlePeak = await UpgradableProxy.deploy()
-        await saddlePeak.updateImplementation(
+        wbtcPeak = await UpgradableProxy.deploy()
+        await wbtcPeak.updateImplementation(
             (await YearnWbtcPeak.deploy(core.address, yvWBTC.address)).address
         )
-        saddlePeak = await ethers.getContractAt('YearnWbtcPeak', saddlePeak.address)
+        wbtcPeak = await ethers.getContractAt('YearnWbtcPeak', wbtcPeak.address)
     })
 
     it('whitelist wbtc peak', async function() {
-        expect(await core.peaks(saddlePeak.address)).to.eq(0) // Extinct
+        expect(await core.peaks(wbtcPeak.address)).to.eq(0) // Extinct
 
-        await core.whitelistPeak(saddlePeak.address)
+        await core.whitelistPeak(wbtcPeak.address)
 
-        expect(await core.peakAddresses(1)).to.eq(saddlePeak.address)
-        expect(await core.peaks(saddlePeak.address)).to.eq(1) // Active
+        expect(await core.peakAddresses(1)).to.eq(wbtcPeak.address)
+        expect(await core.peaks(wbtcPeak.address)).to.eq(1) // Active
     })
 
     it('mint with yvWBTC', async function() {
         let amount = BigNumber.from(5).mul(1e7) // 0.5 yvWBTC
-        await deployer.impersonateAccount(yvWBTCHolder)
+        await impersonateAccount(yvWBTCHolder)
         await yvWBTC.connect(ethers.provider.getSigner(yvWBTCHolder)).transfer(alice, amount)
 
-        const calcMint = await saddlePeak.calcMint(amount)
-        await yvWBTC.approve(saddlePeak.address, amount)
-        await saddlePeak.mint(amount)
+        const calcMint = await wbtcPeak.calcMint(amount)
+        await yvWBTC.approve(wbtcPeak.address, amount)
+        await wbtcPeak.mint(amount)
 
         // yvWBTC.pricePerShare() = 1e8, so exact same bBTC will be minted
         let mintedBbtc = _1e18.mul(5).div(10)
@@ -56,8 +57,9 @@ describe('YearnWbtcPeak (mainnet-fork)', function() {
         const expectedBbtc = mintedBbtc.sub(fee)
 
         expect(calcMint.bBTC).to.eq(expectedBbtc)
+        expect(await wbtcPeak.portfolioValue()).to.eq(mintedBbtc)
         await assertions(
-            saddlePeak,
+            wbtcPeak,
             [
                 ZERO,
                 expectedBbtc,
@@ -71,11 +73,11 @@ describe('YearnWbtcPeak (mainnet-fork)', function() {
         let amount = await bBTC.balanceOf(alice)
 
         const [ calcRedeem, accumulatedFee ] = await Promise.all([
-            saddlePeak.calcRedeem(amount),
+            wbtcPeak.calcRedeem(amount),
             core.accumulatedFee(),
         ])
 
-        await saddlePeak.redeem(amount)
+        await wbtcPeak.redeem(amount)
 
         const fee = amount.mul(mintAndRedeemFee).div(PRECISION) // denominated in bbtc
         // yvWBTC.pricePerShare() = 1e8, so exact same yvWBTC will be received
@@ -85,7 +87,7 @@ describe('YearnWbtcPeak (mainnet-fork)', function() {
         expect(calcRedeem.fee).to.eq(fee)
 
         await assertions(
-            saddlePeak,
+            wbtcPeak,
             [
                 expected,
                 ZERO,
