@@ -47,7 +47,6 @@ contract SaddlePeak is AccessControlDefended, IPeak {
     */
     function mint(uint poolId, uint inAmount)
         external
-        override
         defend
         blockLocked
         returns(uint outAmount)
@@ -70,7 +69,6 @@ contract SaddlePeak is AccessControlDefended, IPeak {
     */
     function redeem(uint poolId, uint inAmount)
         external
-        override
         defend
         blockLocked
         returns (uint outAmount)
@@ -85,9 +83,9 @@ contract SaddlePeak is AccessControlDefended, IPeak {
 
     /* ##### View ##### */
 
-    function calcMint(uint poolId, uint inAmount) override external view returns(uint, uint) {}
+    function calcMint(uint poolId, uint inAmount) external view returns(uint, uint) {}
 
-    function calcRedeem(uint poolId, uint bBtc) override external view returns(uint,uint,uint) {}
+    function calcRedeem(uint poolId, uint bBtc) external view returns(uint,uint,uint) {}
 
     function portfolioValue()
         override

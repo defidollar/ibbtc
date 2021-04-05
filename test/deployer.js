@@ -1,7 +1,8 @@
 const { expect } = require("chai");
 const { BigNumber } = ethers
 
-const blockNumber = 12080365
+const { impersonateAccount } = require('./utils')
+
 const wbtcWhaleBalance = BigNumber.from(150).mul(1e8) // wbtc has 8 decimals
 const wBTC = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599'
 const wBTCWhale = '0x875abe6f1e2aba07bed4a3234d8555a0d7656d12'
@@ -27,7 +28,7 @@ const crvPools = {
     }
 }
 
-async function setupMainnetContracts(feeSink) {
+async function setupMainnetContracts(feeSink, blockNumber = 12080365) {
     await network.provider.request({
         method: "hardhat_reset",
         params: [{
@@ -153,19 +154,11 @@ async function setupContracts(feeSink) {
     return { badgerPeak, curveLPToken, bBTC, sett, swap, core }
 }
 
-async function impersonateAccount(account) {
-    await network.provider.request({
-        method: 'hardhat_impersonateAccount',
-        params: [account],
-    })
-}
-
 module.exports = {
     setupContracts,
     setupMainnetContracts,
     getPoolContracts,
     mintCrvPoolToken,
-    impersonateAccount,
     getWbtc,
     crvPools
 }

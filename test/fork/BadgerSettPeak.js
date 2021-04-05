@@ -19,9 +19,6 @@ describe('BadgerSettPeak (mainnet-fork)', function() {
     })
 
     it('modifyWhitelistedCurvePools', async function() {
-        // if (process.env.DRYRUN === 'true') {
-        //     this.skip()
-        // }
         const pools = Object.keys(deployer.crvPools).map(k => _.pick(deployer.crvPools[k], ['swap', 'sett']))
         await badgerPeak.modifyWhitelistedCurvePools(pools)
         expect((await badgerPeak.numPools()).toString()).to.eq('3')

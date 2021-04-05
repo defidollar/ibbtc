@@ -3,6 +3,7 @@ const { expect } = require("chai");
 const { BigNumber } = ethers
 
 const deployer = require('../deployer')
+const { impersonateAccount } = require('../utils')
 
 let mintAndRedeemFee = BigNumber.from(10)
 const PRECISION = BigNumber.from(10000)
@@ -75,9 +76,8 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
     })
 
     it('mint with saddleTWRenSBTC', async function() {
-        // let amount = BigNumber.from(9).mul(BigNumber.from(10).pow(17)) // 0.9
         let amount = _1e18.mul(10)
-        await deployer.impersonateAccount(saddleTWRenSBTCWhale)
+        await impersonateAccount(saddleTWRenSBTCWhale)
         // transfer from whale
         await saddleTWRenSBTC.connect(ethers.provider.getSigner(saddleTWRenSBTCWhale)).transfer(alice, amount)
         await testMintWithCurveLP(0, amount, [ saddlePeak, saddleTWRenSBTC, saddleSwap ])

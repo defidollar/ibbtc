@@ -5,11 +5,12 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20, SafeMath} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/math/Math.sol";
 
-import {ISwap} from "./interfaces/ISwap.sol";
-import {ICore} from "./interfaces/ICore.sol";
-import {ISett} from "./interfaces/ISett.sol";
-import {IPeak} from "./interfaces/IPeak.sol";
-import {AccessControlDefended} from "./common/AccessControlDefended.sol";
+import {AccessControlDefended} from "../common/AccessControlDefended.sol";
+
+import {ISwap} from "../interfaces/ISwap.sol";
+import {ICore} from "../interfaces/ICore.sol";
+import {ISett} from "../interfaces/ISett.sol";
+import {IPeak} from "../interfaces/IPeak.sol";
 
 contract BadgerSettPeak is AccessControlDefended, IPeak {
     using SafeERC20 for IERC20;
@@ -47,7 +48,6 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
     */
     function mint(uint poolId, uint inAmount)
         external
-        override
         defend
         blockLocked
         returns(uint outAmount)
@@ -70,7 +70,6 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
     */
     function redeem(uint poolId, uint inAmount)
         external
-        override
         defend
         blockLocked
         returns (uint outAmount)
@@ -85,7 +84,11 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
 
     /* ##### View ##### */
 
-    function calcMint(uint poolId, uint inAmount) override external view returns(uint bBTC, uint fee) {
+    function calcMint(uint poolId, uint inAmount)
+        external
+        view
+        returns(uint bBTC, uint fee)
+    {
         (bBTC, fee) = core.btcToBbtc(_settToBtc(pools[poolId], inAmount));
     }
 
@@ -95,7 +98,11 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
     * @return fee Fee charges
     * @return max Max amount of bBTC redeemable for chosen sett
     */
-    function calcRedeem(uint poolId, uint bBtc) override external view returns(uint sett, uint fee, uint max) {
+    function calcRedeem(uint poolId, uint bBtc)
+        external
+        view
+        returns(uint sett, uint fee, uint max)
+    {
         CurvePool memory pool = pools[poolId];
         uint btc;
         (btc, fee) = core.bBtcToBtc(bBtc);
@@ -129,7 +136,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
 
     /**
     * @dev Determine sett amount given btc
-    * @param btc BTC amount, scaled by 1e18
+    * @param btc BTC amount, scaled by 1e36
     *        Will revert for > 1e41.
     *        It's not possible to supply that amount because btc supply is capped at 21e24
     */
@@ -138,7 +145,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
         view
         returns(uint)
     {
-        return btc // is already scaled by 1e18
+        return btc // is already scaled by 1e36
             .mul(1e18)
             .div(pool.sett.getPricePerFullShare())
             .div(pool.swap.get_virtual_price());

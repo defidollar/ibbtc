@@ -91,7 +91,7 @@ contract Core is GovernableProxy, ICore {
     }
 
     /**
-    * @return btc amount redeemed, scaled by 1e18
+    * @return btc amount redeemed, scaled by 1e36
     */
     function bBtcToBtc(uint bBtc) override public view returns (uint btc, uint fee) {
         fee = bBtc.mul(redeemFee).div(PRECISION);
