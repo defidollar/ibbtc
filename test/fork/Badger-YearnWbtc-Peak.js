@@ -10,27 +10,27 @@ const PRECISION = BigNumber.from(10000)
 const ZERO = BigNumber.from(0)
 const _1e18 = ethers.constants.WeiPerEther
 
-const yvWBTCHolder = '0x5b908e3a23823fd9da157726736bacbff472976a'
+const byvWBTCHolder = '0xe9b05bc1fa8684ee3e01460aac2e64c678b9da5d'
 
 describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
     before('setup contracts', async function() {
         signers = await ethers.getSigners()
         alice = signers[0].address
         feeSink = '0x5b5cF8620292249669e1DCC73B753d01543D6Ac7' // DeFiDollar DAO Governance Multisig
-        ;({ badgerPeak, core, bBTC } = await deployer.setupMainnetContracts(feeSink, 12174154))
-        yvWBTC = await ethers.getContractAt('IyvWBTC', '0x1Ae8Ccd120A05080d9A01C3B4F627F865685D091')
+        ;({ badgerPeak, core, bBTC } = await deployer.setupMainnetContracts(feeSink, 12274034))
+        byvWBTC = await ethers.getContractAt('IyvWBTC', '0x4b92d19c11435614CD49Af1b589001b7c08cD4D5')
     })
 
     it('deploy YearnWbtc Peak', async function() {
-        const [ UpgradableProxy, YearnWbtcPeak ] = await Promise.all([
+        const [ UpgradableProxy, BadgerYearnWbtcPeak ] = await Promise.all([
             ethers.getContractFactory('UpgradableProxy'),
-            ethers.getContractFactory('YearnWbtcPeak')
+            ethers.getContractFactory('BadgerYearnWbtcPeak')
         ])
         wbtcPeak = await UpgradableProxy.deploy()
         await wbtcPeak.updateImplementation(
-            (await YearnWbtcPeak.deploy(core.address, yvWBTC.address)).address
+            (await BadgerYearnWbtcPeak.deploy(core.address, byvWBTC.address)).address
         )
-        wbtcPeak = await ethers.getContractAt('YearnWbtcPeak', wbtcPeak.address)
+        wbtcPeak = await ethers.getContractAt('BadgerYearnWbtcPeak', wbtcPeak.address)
     })
 
     it('whitelist wbtc peak', async function() {
@@ -61,23 +61,24 @@ describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
         mintAndRedeemFee = ZERO
     })
 
-    it('mint with yvWBTC', async function() {
-        let amount = BigNumber.from(5).mul(1e7) // 0.5 yvWBTC
-        await impersonateAccount(yvWBTCHolder)
-        await yvWBTC.connect(ethers.provider.getSigner(yvWBTCHolder)).transfer(alice, amount)
+    it('mint with byvWBTC', async function() {
+        let amount = BigNumber.from(4).mul(1e7) // 0.4 byvWBTC
+        await impersonateAccount(byvWBTCHolder)
+        await byvWBTC.connect(ethers.provider.getSigner(byvWBTCHolder)).transfer(alice, amount)
 
-        // yvWBTC.pricePerShare() = 1e8, so exact same bBTC will be minted
-        let mintedBbtc = _1e18.mul(5).div(10)
+        // byvWBTC.pricePerShare() != 1e8, so bBTC amount must be estimated with pps
+        let mintedBbtc = _1e18.mul(4).div(10)
         const fee = mintedBbtc.mul(mintAndRedeemFee).div(PRECISION)
-        const expectedBbtc = mintedBbtc.sub(fee)
+        const pps = await byvWBTC.pricePerShare()
+        const expectedBbtc = await mintedBbtc.sub(fee).mul(pps).div(1e8)
 
         const calcMint = await wbtcPeak.calcMint(amount)
         expect(calcMint.bBTC).to.eq(expectedBbtc)
 
-        await yvWBTC.approve(wbtcPeak.address, amount)
+        await byvWBTC.approve(wbtcPeak.address, amount)
         await wbtcPeak.mint(amount)
-
-        expect(await wbtcPeak.portfolioValue()).to.eq(mintedBbtc)
+        
+        expect(await wbtcPeak.portfolioValue()).to.eq(expectedBbtc)
         await yvWbtcAssertions(
             wbtcPeak,
             [
@@ -156,13 +157,14 @@ describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
         await testRedeem(2, 'tbtc')
     });
 
-    it('redeem in yvWBTC', async function() {
+    it('redeem in byvWBTC', async function() {
         // aliceBbtc = 499998553138746239
         // core.bBtcToBtc(aliceBbtc) = 499999999999999999909214769325897064
-        // redeem-able yvWBTC = 49999999
+        // redeem-able byvWBTC = 49999999
+        const pps = await byvWBTC.pricePerShare()
         const aliceBbtc = await bBTC.balanceOf(alice)
         const calcRedeem = await wbtcPeak.calcRedeem(aliceBbtc)
-        expect(calcRedeem.sett.toString()).to.eq('49999999') // 0.499
+        expect(calcRedeem.sett.toString()).to.eq('39999999') // 0.399
 
         // console.log({
         //     aliceBbtc: aliceBbtc.toString(),
@@ -174,9 +176,9 @@ describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
 
         await wbtcPeak.redeem(await bBTC.balanceOf(alice))
 
-        // 5e7 - 49999999 = 1 yvWBTC = 1e10 in portfolio value
-        expect(await wbtcPeak.portfolioValue()).to.eq(BigNumber.from(1e10))
-        expect(await core.totalSystemAssets()).to.eq(BigNumber.from(1e10))
+        // 4e7 - 39999999 = 1 byvWBTC = 1e10 in portfolio value
+        expect(await wbtcPeak.portfolioValue()).to.eq(BigNumber.from(1e10).mul(pps).div(1e8))
+        expect(await core.totalSystemAssets()).to.eq(BigNumber.from(1e10).mul(pps).div(1e8))
         await yvWbtcAssertions(
             wbtcPeak,
             [
@@ -330,9 +332,9 @@ describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
 
     async function yvWbtcAssertions(peak, [ aliceYVwbtc, alicebtc, peakYVwbtc, accumulatedFee ]) {
         const vals = await Promise.all([
-            yvWBTC.balanceOf(alice),
+            byvWBTC.balanceOf(alice),
             bBTC.balanceOf(alice),
-            yvWBTC.balanceOf(peak.address),
+            byvWBTC.balanceOf(peak.address),
             core.accumulatedFee()
         ])
         expect(aliceYVwbtc).to.eq(vals[0])
