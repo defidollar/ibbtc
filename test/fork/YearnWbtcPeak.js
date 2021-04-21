@@ -53,12 +53,12 @@ describe('BadgerYearnWbtcPeak (mainnet-fork)', function() {
 
         // byvWBTC.pricePerShare() != 1e8, so bBTC amount must be estimated with pps
         const pps = await byvWBTC.pricePerShare()
-        let mintedBbtc = _1e18.mul(4).div(10)
-        const fee = mintedBbtc.mul(mintAndRedeemFee).div(PRECISION).mul(pps).div(1e8)
-        const expectedBbtc = mintedBbtc.mul(pps).div(1e8).sub(fee)
+        let mintedBbtc = amount.mul(pps).mul(100)
+        const fee = mintedBbtc.mul(mintAndRedeemFee).div(PRECISION)
+        const expectedBbtc = mintedBbtc.sub(fee)
 
         expect(calcMint.bBTC).to.eq(expectedBbtc)
-        expect(await wbtcPeak.portfolioValue()).to.eq(mintedBbtc.mul(pps).div(1e8))
+        expect(await wbtcPeak.portfolioValue()).to.eq(mintedBbtc)
 
         await assertions(
             wbtcPeak,
@@ -84,7 +84,8 @@ describe('BadgerYearnWbtcPeak (mainnet-fork)', function() {
 
         const fee = amount.mul(mintAndRedeemFee).div(PRECISION) // denominated in bbtc
         // byvWBTC.pricePerShare() != 1e8, so byvWBTC amount must be estimated with pps
-        const expected = amount.sub(fee).div(BigNumber.from(1e10).mul(pps).div(1e8))
+        // const expected = amount.sub(fee).div(BigNumber.from(1e10).mul(pps).div(1e8))
+        const expected = amount.sub(fee).div(pps).div(100)
 
         expect(calcRedeem.sett).to.eq(expected)
         expect(calcRedeem.fee).to.eq(fee)
