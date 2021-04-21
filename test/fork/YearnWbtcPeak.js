@@ -84,7 +84,6 @@ describe('BadgerYearnWbtcPeak (mainnet-fork)', function() {
 
         const fee = amount.mul(mintAndRedeemFee).div(PRECISION) // denominated in bbtc
         // byvWBTC.pricePerShare() != 1e8, so byvWBTC amount must be estimated with pps
-        // const expected = amount.sub(fee).div(BigNumber.from(1e10).mul(pps).div(1e8))
         const expected = amount.sub(fee).div(pps).div(100)
 
         expect(calcRedeem.sett).to.eq(expected)
