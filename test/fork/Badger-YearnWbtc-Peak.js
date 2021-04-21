@@ -67,18 +67,18 @@ describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
         await byvWBTC.connect(ethers.provider.getSigner(byvWBTCHolder)).transfer(alice, amount)
 
         // byvWBTC.pricePerShare() != 1e8, so bBTC amount must be estimated with pps
-        let mintedBbtc = _1e18.mul(4).div(10)
-        const fee = mintedBbtc.mul(mintAndRedeemFee).div(PRECISION)
         const pps = await byvWBTC.pricePerShare()
-        const expectedBbtc = await mintedBbtc.sub(fee).mul(pps).div(1e8)
+        let mintedBbtc = amount.mul(pps).mul(100)
+        const fee = mintedBbtc.mul(mintAndRedeemFee).div(PRECISION)
+        const expectedBbtc = await mintedBbtc.sub(fee)
 
         const calcMint = await wbtcPeak.calcMint(amount)
         expect(calcMint.bBTC).to.eq(expectedBbtc)
 
         await byvWBTC.approve(wbtcPeak.address, amount)
         await wbtcPeak.mint(amount)
-        
-        expect(await wbtcPeak.portfolioValue()).to.eq(expectedBbtc)
+
+        expect(await wbtcPeak.portfolioValue()).to.eq(mintedBbtc)
         await yvWbtcAssertions(
             wbtcPeak,
             [
@@ -158,9 +158,9 @@ describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
     });
 
     it('redeem in byvWBTC', async function() {
-        // aliceBbtc = 499998553138746239
-        // core.bBtcToBtc(aliceBbtc) = 499999999999999999909214769325897064
-        // redeem-able byvWBTC = 49999999
+        // aliceBbtc = 401348725344425831
+        // core.bBtcToBtc(aliceBbtc) = 401349719999999999703004150868574971
+        // redeem-able byvWBTC = 39999999
         const pps = await byvWBTC.pricePerShare()
         const aliceBbtc = await bBTC.balanceOf(alice)
         const calcRedeem = await wbtcPeak.calcRedeem(aliceBbtc)
@@ -174,11 +174,12 @@ describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
         //     max: calcRedeem.max.toString(),
         // })
 
-        await wbtcPeak.redeem(await bBTC.balanceOf(alice))
+        await wbtcPeak.redeem(aliceBbtc)
 
-        // 4e7 - 39999999 = 1 byvWBTC = 1e10 in portfolio value
-        expect(await wbtcPeak.portfolioValue()).to.eq(BigNumber.from(1e10).mul(pps).div(1e8))
-        expect(await core.totalSystemAssets()).to.eq(BigNumber.from(1e10).mul(pps).div(1e8))
+        // 4e7 - 39999999 = 1 byvWBTC
+        // Since portfolioValue is scaled by 1e18, wbtcPeak.portfolioValue() = 1 * pps * 100
+        expect(await wbtcPeak.portfolioValue()).to.eq(pps.mul(100))
+        expect(await core.totalSystemAssets()).to.eq(pps.mul(100))
         await yvWbtcAssertions(
             wbtcPeak,
             [
