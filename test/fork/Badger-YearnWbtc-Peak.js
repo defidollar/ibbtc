@@ -12,7 +12,7 @@ const _1e18 = ethers.constants.WeiPerEther
 
 const byvWBTCHolder = '0xe9b05bc1fa8684ee3e01460aac2e64c678b9da5d'
 
-describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
+describe('BadgerSettPeak + BadgerYearnWbtcPeak (mainnet-fork)', function() {
     before('setup contracts', async function() {
         signers = await ethers.getSigners()
         alice = signers[0].address
@@ -21,7 +21,7 @@ describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
         byvWBTC = await ethers.getContractAt('IyvWBTC', '0x4b92d19c11435614CD49Af1b589001b7c08cD4D5')
     })
 
-    it('deploy YearnWbtc Peak', async function() {
+    it('deploy BadgerYearnWbtcPeak Peak', async function() {
         const [ UpgradableProxy, BadgerYearnWbtcPeak ] = await Promise.all([
             ethers.getContractFactory('UpgradableProxy'),
             ethers.getContractFactory('BadgerYearnWbtcPeak')
@@ -33,7 +33,7 @@ describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
         wbtcPeak = await ethers.getContractAt('BadgerYearnWbtcPeak', wbtcPeak.address)
     })
 
-    it('whitelist wbtc peak', async function() {
+    it('whitelist BadgerYearnWbtcPeak peak', async function() {
         expect(await core.peaks(wbtcPeak.address)).to.eq(0) // Extinct
 
         await core.whitelistPeak(wbtcPeak.address)

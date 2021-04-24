@@ -145,8 +145,12 @@ contract GuestList is Ownable {
         }
     }
 
-    function _verifyInvitationProof(address account, bytes32[] calldata merkleProof) internal view returns (bool) {
+    function _verifyInvitationProof(address account, bytes32[] calldata merkleProof) public view returns (bool) {
         bytes32 node = keccak256(abi.encodePacked(account));
         return MerkleProof.verify(merkleProof, guestRoot, node);
+    }
+
+    function yoyo(address account) public view returns(bytes32) {
+        return keccak256(abi.encodePacked(account));
     }
 }

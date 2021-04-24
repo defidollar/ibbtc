@@ -60,7 +60,7 @@ contract Core is GovernableProxy, ICore {
         if (address(guestList) != address(0)) {
             require(
                 guestList.authorized(account, btc, merkleProof),
-                "GUEST_LIST_LIMIT_REACHED"
+                "guest-list-authorization"
             );
         }
         (uint bBtc, uint fee) = btcToBbtc(btc);
