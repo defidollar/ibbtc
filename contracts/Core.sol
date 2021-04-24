@@ -8,7 +8,6 @@ import {IPeak} from "./interfaces/IPeak.sol";
 import {IbBTC} from "./interfaces/IbBTC.sol";
 import {ICore} from "./interfaces/ICore.sol";
 import {GovernableProxy} from "./common/proxy/GovernableProxy.sol";
-import {GovernableProxy} from "./common/proxy/GovernableProxy.sol";
 
 contract Core is GovernableProxy, ICore {
     using SafeERC20 for IERC20;
@@ -19,6 +18,8 @@ contract Core is GovernableProxy, ICore {
 
     IbBTC public immutable bBTC;
 
+    BadgerGuestListAPI public guestList;
+
     enum PeakState { Extinct, Active, Dormant }
     mapping(address => PeakState) public peaks;
 
@@ -27,8 +28,6 @@ contract Core is GovernableProxy, ICore {
     uint public mintFee;
     uint public redeemFee;
     uint public accumulatedFee;
-
-    BadgerGuestListAPI public guestList;
 
     uint256[50] private __gap;
 
