@@ -45,7 +45,7 @@ contract SaddlePeak is AccessControlDefended, IPeak {
     * @param inAmount Amount of Sett LP token to mint bBTC with
     * @return outAmount Amount of bBTC minted to user's account
     */
-    function mint(uint poolId, uint inAmount)
+    function mint(uint poolId, uint inAmount, bytes32[] calldata merkleProof)
         external
         defend
         blockLocked
@@ -53,7 +53,7 @@ contract SaddlePeak is AccessControlDefended, IPeak {
     {
         _lockForBlock(msg.sender);
         CurvePool memory pool = pools[poolId];
-        outAmount = core.mint(_settToBtc(pool, inAmount), msg.sender);
+        outAmount = core.mint(_settToBtc(pool, inAmount), msg.sender, merkleProof);
         // will revert if user passed an unsupported poolId
         pool.lpToken.safeTransferFrom(msg.sender, address(this), inAmount);
         emit Mint(msg.sender, outAmount);

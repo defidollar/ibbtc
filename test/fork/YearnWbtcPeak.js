@@ -49,7 +49,7 @@ describe('BadgerYearnWbtcPeak (mainnet-fork)', function() {
 
         const calcMint = await wbtcPeak.calcMint(amount)
         await byvWBTC.approve(wbtcPeak.address, amount)
-        await wbtcPeak.mint(amount)
+        await wbtcPeak.mint(amount, [])
 
         // byvWBTC.pricePerShare() != 1e8, so bBTC amount must be estimated with pps
         const pps = await byvWBTC.pricePerShare()

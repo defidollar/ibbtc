@@ -26,7 +26,7 @@ describe('BadgerSettPeak', function() {
         await sett.deposit(amount)
 
         await sett.approve(badgerPeak.address, amount)
-        await badgerPeak.mint(0, amount)
+        await badgerPeak.mint(0, amount, [])
 
         const bBtc = amount//.sub(1) // round-down
         const _fee = bBtc.mul(fee).div(PRECISION)
@@ -147,7 +147,7 @@ describe('Zero fee and redeem all', function() {
         expect(calcMint.bBTC).to.eq(aliceBtc)
 
         await sett.approve(badgerPeak.address, amount)
-        await badgerPeak.mint(0, amount)
+        await badgerPeak.mint(0, amount, [])
 
         expect(await bBTC.balanceOf(alice)).to.eq(aliceBtc)
         expect(await sett.balanceOf(alice)).to.eq(ZERO)

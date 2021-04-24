@@ -76,7 +76,7 @@ describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
         expect(calcMint.bBTC).to.eq(expectedBbtc)
 
         await byvWBTC.approve(wbtcPeak.address, amount)
-        await wbtcPeak.mint(amount)
+        await wbtcPeak.mint(amount, [])
 
         expect(await wbtcPeak.portfolioValue()).to.eq(mintedBbtc)
         await yvWbtcAssertions(
@@ -120,15 +120,15 @@ describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
         await testMint(2, await sett.balanceOf(alice), [badgerPeak].concat(contracts))
     });
 
-    it('getPricePerFullShare should increase after a trade', async function() {
+    it('pricePerShare should increase after a trade', async function() {
         let amount = BigNumber.from(15).mul(1e8) // wbtc has 8 decimals
         const wbtc = await deployer.getWbtc(alice, amount)
 
-        let ppfs = await core.getPricePerFullShare()
+        let ppfs = await core.pricePerShare()
         for (let i = 0; i < 10; i++) {
             await tradeWbtcxRen(wbtc)
             // trades will increase the virtual price; so ppfs should increase
-            const _ppfs = await core.getPricePerFullShare()
+            const _ppfs = await core.pricePerShare()
             expect(_ppfs.gt(ppfs)).to.be.true
             ppfs = _ppfs
         }
@@ -194,8 +194,8 @@ describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
     it('sanity checks', async function() {
         expect(await bBTC.balanceOf(alice)).to.eq(ZERO)
         expect(await bBTC.totalSupply()).to.eq(ZERO)
-        expect(await bBTC.getPricePerFullShare()).to.eq(_1e18)
-        expect(await core.getPricePerFullShare()).to.eq(_1e18)
+        expect(await bBTC.pricePerShare()).to.eq(_1e18)
+        expect(await core.pricePerShare()).to.eq(_1e18)
         expect(await core.accumulatedFee()).to.eq(ZERO)
     })
 
@@ -204,7 +204,7 @@ describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
         const amount = (await sett.balanceOf(badgerPeak.address))
             .mul(await sett.getPricePerFullShare())
             .mul(await swap.get_virtual_price())
-            .div(await core.getPricePerFullShare())
+            .div(await core.pricePerShare())
             .div(_1e18)
             .add(1) // round-off nuance
         const [
@@ -226,7 +226,7 @@ describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
         ])
         const fee = amount.mul(mintAndRedeemFee).div(PRECISION)
         const expected = amount.sub(fee)
-            .mul(await core.getPricePerFullShare())
+            .mul(await core.pricePerShare())
             .mul(_1e18)
             .div(ppfs)
             .div(virtualPrice)
@@ -290,7 +290,7 @@ describe('BadgerSettPeak + YearnWbtc (mainnet-fork)', function() {
         expect(calcMint.bBTC).to.eq(expectedBbtc)
 
         await sett.approve(peak.address, amount)
-        await peak.mint(poolId, amount)
+        await peak.mint(poolId, amount, [])
 
         await assertions(
             peak,
