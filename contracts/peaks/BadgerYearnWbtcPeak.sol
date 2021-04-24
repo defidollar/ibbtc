@@ -10,7 +10,7 @@ import {ICore} from "../interfaces/ICore.sol";
 import {IyvWBTC} from "../interfaces/IyvWBTC.sol";
 import {IPeak} from "../interfaces/IPeak.sol";
 
-contract YearnWbtcPeak is AccessControlDefended, IPeak {
+contract BadgerYearnWbtcPeak is AccessControlDefended, IPeak {
     using SafeERC20 for IERC20;
     using SafeERC20 for IyvWBTC;
 
@@ -18,25 +18,25 @@ contract YearnWbtcPeak is AccessControlDefended, IPeak {
     using Math for uint;
 
     ICore public immutable core;
-    IyvWBTC public immutable yvWBTC;
+    IyvWBTC public immutable byvWBTC;
 
     // END OF STORAGE VARIABLES
 
-    event Mint(address account, uint ibBTC, uint yvWBTC);
-    event Redeem(address account, uint ibBTC, uint yvWBTC);
+    event Mint(address account, uint ibBTC, uint byvWBTC);
+    event Redeem(address account, uint ibBTC, uint byvWBTC);
 
     /**
     * @param _core Address of the the Core contract
     */
-    constructor(address _core, address _yvWBTC) public {
+    constructor(address _core, address _byvWBTC) public {
         core = ICore(_core);
-        yvWBTC = IyvWBTC(_yvWBTC);
+        byvWBTC = IyvWBTC(_byvWBTC);
     }
 
     /**
-    * @notice Mint bBTC with yvWBTC token
-    * @dev Invoking yvWBTC.safeTransferFrom() before core.mint(), will mess up core.totalSystemAssets() calculation
-    * @param inAmount Amount of yvWBTC token to mint bBTC with
+    * @notice Mint bBTC with byvWBTC token
+    * @dev Invoking byvWBTC.safeTransferFrom() before core.mint(), will mess up core.totalSystemAssets() calculation
+    * @param inAmount Amount of byvWBTC token to mint bBTC with
     * @return outAmount Amount of bBTC minted to user's account
     */
     function mint(uint inAmount)
@@ -47,16 +47,16 @@ contract YearnWbtcPeak is AccessControlDefended, IPeak {
     {
         _lockForBlock(msg.sender);
         outAmount = core.mint(_yTokenToBtc(inAmount), msg.sender);
-        yvWBTC.safeTransferFrom(msg.sender, address(this), inAmount);
+        byvWBTC.safeTransferFrom(msg.sender, address(this), inAmount);
         emit Mint(msg.sender, outAmount, inAmount);
     }
 
     /**
-    * @notice Redeem bBTC in yvWBTC tokens
-    * @dev There might not be enough yvWBTC to fulfill the request, in which case the transaction will revert
-    *      Invoking yvWBTC.safeTransfer() before core.redeem(), will mess up core.totalSystemAssets() calculation
+    * @notice Redeem bBTC in byvWBTC tokens
+    * @dev There might not be enough byvWBTC to fulfill the request, in which case the transaction will revert
+    *      Invoking byvWBTC.safeTransfer() before core.redeem(), will mess up core.totalSystemAssets() calculation
     * @param inAmount Amount of bBTC to redeem
-    * @return outAmount Amount of yvWBTC token
+    * @return outAmount Amount of byvWBTC token
     */
     function redeem(uint inAmount)
         external
@@ -65,8 +65,8 @@ contract YearnWbtcPeak is AccessControlDefended, IPeak {
         returns (uint outAmount)
     {
         _lockForBlock(msg.sender);
-        outAmount = _btcToYVwbtc(core.redeem(inAmount, msg.sender));
-        yvWBTC.safeTransfer(msg.sender, outAmount);
+        outAmount = _btcTobyvWBTC(core.redeem(inAmount, msg.sender));
+        byvWBTC.safeTransfer(msg.sender, outAmount);
         emit Redeem(msg.sender, inAmount, outAmount);
     }
 
@@ -84,7 +84,7 @@ contract YearnWbtcPeak is AccessControlDefended, IPeak {
     * @notice Determines the Sett tokens that will be received when redeeming bBTC
     * @return sett Number of sett tokens
     * @return fee Fee charges
-    * @return max Max amount of bBTC redeemable for yvWBTC
+    * @return max Max amount of bBTC redeemable for byvWBTC
     */
     function calcRedeem(uint bBtc)
         external
@@ -93,7 +93,7 @@ contract YearnWbtcPeak is AccessControlDefended, IPeak {
     {
         uint btc;
         (btc, fee) = core.bBtcToBtc(bBtc);
-        sett = _btcToYVwbtc(btc);
+        sett = _btcTobyvWBTC(btc);
         max = portfolioValue()
             .mul(1e18)
             .div(core.getPricePerFullShare());
@@ -106,7 +106,7 @@ contract YearnWbtcPeak is AccessControlDefended, IPeak {
         returns (uint)
     {
         return _yTokenToBtc(
-            yvWBTC.balanceOf(address(this))
+            byvWBTC.balanceOf(address(this))
         );
     }
 
@@ -114,19 +114,19 @@ contract YearnWbtcPeak is AccessControlDefended, IPeak {
     * @dev Determine sett amount given btc
     * @param btc BTC amount, scaled by 1e36
     */
-    function _btcToYVwbtc(uint btc)
+    function _btcTobyvWBTC(uint btc)
         internal
         view
         returns(uint)
     {
         return btc // this value is scaled by 1e36
             .div(1e20)
-            .div(yvWBTC.pricePerShare());
+            .div(byvWBTC.pricePerShare());
     }
 
     /**
-    * @dev Determine btc amount given yvWBTC amount
-    * @param amount yvWBTC amount
+    * @dev Determine btc amount given byvWBTC amount
+    * @param amount byvWBTC amount
     * @return btc value, scaled by 1e18
     */
     function _yTokenToBtc(uint amount)
@@ -134,10 +134,10 @@ contract YearnWbtcPeak is AccessControlDefended, IPeak {
         view
         returns(uint)
     {
-        // wBTC and yvWBTC are scaled by 8 decimals.
+        // wBTC and byvWBTC are scaled by 8 decimals.
         // Multiply by 100 to return a value scaled by 1e18.
         return amount
-            .mul(yvWBTC.pricePerShare())
+            .mul(byvWBTC.pricePerShare())
             .mul(100);
     }
 }
