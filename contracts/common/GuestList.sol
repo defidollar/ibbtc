@@ -67,7 +67,7 @@ contract GuestList is Ownable {
      */
     function proveInvitation(address account, bytes32[] calldata merkleProof) public {
         // Verify Merkle Proof
-        require(_verifyInvitationProof(account, merkleProof));
+        require(verifyInvitationProof(account, merkleProof));
 
         address[] memory accounts = new address[](1);
         bool[] memory invited = new bool[](1);
@@ -124,7 +124,7 @@ contract GuestList is Ownable {
         // If the user is not already invited and there is an active guestList, require verification of merkle proof to grant temporary invitation (does not set storage variable)
         if (!invited && guestRoot != bytes32(0)) {
             // Will revert on invalid proof
-            invited = _verifyInvitationProof(_guest, _merkleProof);
+            invited = verifyInvitationProof(_guest, _merkleProof);
         }
 
         // If the user was previously invited, or proved invitiation via list, verify if the amount to deposit keeps them under the cap
@@ -145,12 +145,8 @@ contract GuestList is Ownable {
         }
     }
 
-    function _verifyInvitationProof(address account, bytes32[] calldata merkleProof) public view returns (bool) {
+    function verifyInvitationProof(address account, bytes32[] calldata merkleProof) public view returns (bool) {
         bytes32 node = keccak256(abi.encodePacked(account));
         return MerkleProof.verify(merkleProof, guestRoot, node);
-    }
-
-    function yoyo(address account) public view returns(bytes32) {
-        return keccak256(abi.encodePacked(account));
     }
 }
