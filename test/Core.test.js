@@ -44,7 +44,7 @@ describe('Core', function() {
     })
 
     it('mint fails from unwhitelisted peak', async function() {
-        await expect(core.mint(1, alice)).to.be.revertedWith('PEAK_INACTIVE')
+        await expect(core.mint(1, alice, [])).to.be.revertedWith('PEAK_INACTIVE')
     })
 
     it('redeem fails from unwhitelisted peak', async function() {

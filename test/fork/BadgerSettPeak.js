@@ -85,7 +85,7 @@ describe('BadgerSettPeak (mainnet-fork)', function() {
         ])
         const fee = amount.mul(mintAndRedeemFee).div(PRECISION)
         const expected = amount.sub(fee)
-            .mul(await core.getPricePerFullShare())
+            .mul(await core.pricePerShare())
             .mul(_1e18)
             .div(pricePerFullShare)
             .div(virtualPrice)
@@ -148,7 +148,7 @@ describe('BadgerSettPeak (mainnet-fork)', function() {
         expect(calcMint.bBTC).to.eq(expectedBbtc)
 
         await sett.approve(peak.address, amount)
-        await peak.mint(poolId, amount)
+        await peak.mint(poolId, amount, [])
         await assertions(
             peak,
             curveLPToken,

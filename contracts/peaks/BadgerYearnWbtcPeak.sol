@@ -39,14 +39,14 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IPeak {
     * @param inAmount Amount of byvWBTC token to mint bBTC with
     * @return outAmount Amount of bBTC minted to user's account
     */
-    function mint(uint inAmount)
+    function mint(uint inAmount, bytes32[] calldata merkleProof)
         external
         defend
         blockLocked
         returns(uint outAmount)
     {
         _lockForBlock(msg.sender);
-        outAmount = core.mint(_yTokenToBtc(inAmount), msg.sender);
+        outAmount = core.mint(_byvWbtcToBtc(inAmount), msg.sender, merkleProof);
         byvWBTC.safeTransferFrom(msg.sender, address(this), inAmount);
         emit Mint(msg.sender, outAmount, inAmount);
     }
@@ -77,7 +77,7 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IPeak {
         view
         returns(uint bBTC, uint fee)
     {
-        (bBTC, fee) = core.btcToBbtc(_yTokenToBtc(inAmount));
+        (bBTC, fee) = core.btcToBbtc(_byvWbtcToBtc(inAmount));
     }
 
     /**
@@ -96,7 +96,7 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IPeak {
         sett = _btcTobyvWBTC(btc);
         max = portfolioValue()
             .mul(1e18)
-            .div(core.getPricePerFullShare());
+            .div(core.pricePerShare());
     }
 
     function portfolioValue()
@@ -105,7 +105,7 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IPeak {
         view
         returns (uint)
     {
-        return _yTokenToBtc(
+        return _byvWbtcToBtc(
             byvWBTC.balanceOf(address(this))
         );
     }
@@ -129,7 +129,7 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IPeak {
     * @param amount byvWBTC amount
     * @return btc value, scaled by 1e18
     */
-    function _yTokenToBtc(uint amount)
+    function _byvWbtcToBtc(uint amount)
         internal
         view
         returns(uint)

@@ -18,6 +18,8 @@ contract Core is GovernableProxy, ICore {
 
     IbBTC public immutable bBTC;
 
+    BadgerGuestListAPI public guestList;
+
     enum PeakState { Extinct, Active, Dormant }
     mapping(address => PeakState) public peaks;
 
@@ -48,12 +50,18 @@ contract Core is GovernableProxy, ICore {
     * @param btc BTC amount supplied, scaled by 1e18
     * @return bBtc Badger BTC that was minted
     */
-    function mint(uint btc, address account)
+    function mint(uint btc, address account, bytes32[] calldata merkleProof)
         override
         external
         returns(uint)
     {
         require(peaks[msg.sender] == PeakState.Active, "PEAK_INACTIVE");
+        if (address(guestList) != address(0)) {
+            require(
+                guestList.authorized(account, btc, merkleProof),
+                "guest-list-authorization"
+            );
+        }
         (uint bBtc, uint fee) = btcToBbtc(btc);
         require(bBtc > 0, "MINTING_0_bBTC");
         accumulatedFee = accumulatedFee.add(fee);
@@ -95,10 +103,10 @@ contract Core is GovernableProxy, ICore {
     */
     function bBtcToBtc(uint bBtc) override public view returns (uint btc, uint fee) {
         fee = bBtc.mul(redeemFee).div(PRECISION);
-        btc = bBtc.sub(fee).mul(getPricePerFullShare());
+        btc = bBtc.sub(fee).mul(pricePerShare());
     }
 
-    function getPricePerFullShare() override public view returns (uint) {
+    function pricePerShare() override public view returns (uint) {
         uint _totalSupply = IERC20(address(bBTC)).totalSupply().add(accumulatedFee);
         if (_totalSupply > 0) {
             return totalSystemAssets().mul(1e18).div(_totalSupply);
@@ -171,7 +179,11 @@ contract Core is GovernableProxy, ICore {
     * @param _redeemFee Redeem Fee
     * @param _feeSink Address of the EOA/contract where accumulated fee will be transferred
     */
-    function setConfig(uint _mintFee, uint _redeemFee, address _feeSink)
+    function setConfig(
+        uint _mintFee,
+        uint _redeemFee,
+        address _feeSink
+    )
         external
         onlyGovernance
     {
@@ -181,8 +193,17 @@ contract Core is GovernableProxy, ICore {
             "INVALID_PARAMETERS"
         );
         require(_feeSink != address(0), "NULL_ADDRESS");
+
         mintFee = _mintFee;
         redeemFee = _redeemFee;
         feeSink = _feeSink;
     }
+
+    function setGuestList(address _guestList) external onlyGovernance {
+        guestList = BadgerGuestListAPI(_guestList);
+    }
+}
+
+interface BadgerGuestListAPI {
+    function authorized(address guest, uint256 amount, bytes32[] calldata merkleProof) external view returns (bool);
 }

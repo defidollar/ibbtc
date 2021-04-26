@@ -29,7 +29,7 @@ contract bBTC is ERC20, IbBTC {
         _burn(account, amount);
     }
 
-    function getPricePerFullShare() external view returns (uint) {
-        return ICore(core).getPricePerFullShare();
+    function pricePerShare() external view returns (uint) {
+        return ICore(core).pricePerShare();
     }
 }
