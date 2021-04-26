@@ -18,6 +18,9 @@ describe('GuestList', function() {
         bob = signers[8].address
         bobSigner = ethers.provider.getSigner(bob)
 
+        pete = signers[10].address
+        peteSigner = ethers.provider.getSigner(pete)
+
         feeSink = signers[9].address
 
         artifacts = await deployer.setupContracts(feeSink)
@@ -40,13 +43,14 @@ describe('GuestList', function() {
     })
 
     it('mint sett LP', async function() {
-        _sett = _1e18.mul(12)
+        _sett = _1e18.mul(18)
         await Promise.all([
             curveLPToken.mint(alice, _sett),
             curveLPToken.approve(sett.address, _sett)
         ])
         await sett.deposit(_sett) // since gpps = 1, alice receives _sett number of sett LP tokens
-        await sett.transfer(bob, _1e18.mul(2)) // will be utilized later
+        await sett.transfer(bob, _1e18.mul(4)) // will be utilized later
+        await sett.transfer(pete, _1e18.mul(4)) // will be utilized later
     })
 
     it('invited guest (alice) can mint', async function() {
@@ -146,6 +150,49 @@ describe('GuestList', function() {
         const _fee = bBtc.mul(fee).div(PRECISION)
 
         expect(await bBTC.balanceOf(bob)).to.eq(bBtc.sub(_fee))
-        expect(await sett.balanceOf(bob)).to.eq(ZERO)
+        expect(await sett.balanceOf(bob)).to.eq(_1e18.mul(2)) // Have 2 sett LP tokens leftover for the future
+    })
+
+    it('include pete in GuestList without merkleProof manually', async function() {
+        await guestList.setGuests([pete], [true])
+    })
+
+    it('manually added guest (pete) mint', async function() {
+        // Increase total deposit cap
+        await guestList.setTotalDepositCap(_1e18.mul(16))
+
+        const amount = _1e18.mul(2)
+        await sett.connect(peteSigner).approve(badgerPeak.address, amount)
+        await badgerPeak.connect(peteSigner).mint(0, amount, [])
+
+        const bBtc = amount // since bBTC.pps() = 1
+        const _fee = bBtc.mul(fee).div(PRECISION)
+
+        expect(await bBTC.balanceOf(pete)).to.eq(bBtc.sub(_fee))
+        expect(await sett.balanceOf(pete)).to.eq(_1e18.mul(2)) // Have 2 sett LP tokens leftover for the future
+    })
+
+    it('remove pete (no merkleProof invitation) from GuestList manually', async function() {
+        await guestList.setGuests([pete], [false])
+    })
+
+    it('removed guest (pete) cannot mint', async function() {
+        const amount = _1e18.mul(2)
+        await sett.connect(peteSigner).approve(badgerPeak.address, amount)
+        await expect(
+            badgerPeak.connect(peteSigner).mint(0, amount, [])
+        ).to.be.revertedWith('guest-list-authorization')
+    })
+
+    it('remove bob (merkleProof invitation) from GuestList manually', async function() {
+        await guestList.setGuests([bob], [false])
+    })
+
+    it('removed guest (bob) cannot mint', async function() {
+        const amount = _1e18.mul(2)
+        await sett.connect(bobSigner).approve(badgerPeak.address, amount)
+        await expect(
+            badgerPeak.connect(bobSigner).mint(0, amount, merkleTree.getHexProof(_guestList[0]))
+        ).to.be.revertedWith('guest-list-authorization')
     })
 });
