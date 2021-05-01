@@ -14,7 +14,7 @@ const saddle = {
     lpToken: '0xC28DF698475dEC994BE00C9C9D8658A548e6304F', // saddleTWRenSBTC
     swap: '0x4f6A43Ad7cba042606dECaCA730d4CE0A57ac62e'
 }
-const saddleTWRenSBTCWhale = '0xc550c0d95fc2a8c56c093de17003dc9f741a6b00'
+const saddleTWRenSBTCWhale = '0x28d804bf2212e220bc2b7b6252993db8286df07f'
 
 describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
     before('setup contracts', async function() {
@@ -26,14 +26,8 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
     })
 
     it('saddlePeak.modifyWhitelistedCurvePools', async function() {
-        const [ UpgradableProxy, SaddlePeak] = await Promise.all([
-            ethers.getContractFactory('UpgradableProxy'),
-            ethers.getContractFactory('SaddlePeak')
-        ])
-        saddlePeak = await UpgradableProxy.deploy()
-        await saddlePeak.updateImplementation(
-            (await SaddlePeak.deploy(core.address)).address
-        )
+        const SaddlePeak = await ethers.getContractFactory('SaddlePeak')
+        saddlePeak = await SaddlePeak.deploy(core.address)
         ;([ saddlePeak, saddleTWRenSBTC, saddleSwap ] = await Promise.all([
             ethers.getContractAt('SaddlePeak', saddlePeak.address),
             ethers.getContractAt('CurveLPToken', saddle.lpToken),
@@ -52,7 +46,7 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
 
         await core.whitelistPeak(saddlePeak.address)
 
-        expect(await core.peakAddresses(1)).to.eq(saddlePeak.address)
+        expect(await core.peakAddresses(2)).to.eq(saddlePeak.address)
         expect(await core.peaks(saddlePeak.address)).to.eq(1) // Active
     })
 
@@ -83,16 +77,6 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
         await testMintWithCurveLP(0, amount, [ saddlePeak, saddleTWRenSBTC, saddleSwap ])
     });
 
-    it('mint with bcrvRenWSBTC', async function() {
-        let amount = _1e18.mul(10)
-        await deployer.mintCrvPoolToken('sbtc', alice, amount)
-        const contracts = await deployer.getPoolContracts('sbtc')
-        const [ lp, _, sett ] = contracts
-        await lp.approve(sett.address, amount)
-        await sett.deposit(amount)
-        await testMint(0, await sett.balanceOf(alice), [badgerPeak].concat(contracts))
-    });
-
     it('mint with bcrvRenWBTC', async function() {
         const amount = _1e18.mul(10)
         await deployer.mintCrvPoolToken('ren', alice, amount)
@@ -100,7 +84,17 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
         renWbtcSwap = swap
         await lp.approve(sett.address, amount)
         await sett.deposit(amount)
-        await testMint(1, await sett.balanceOf(alice), [ badgerPeak, lp, swap, sett ])
+        await testMint(0, await sett.balanceOf(alice), [ badgerPeak, lp, swap, sett ])
+    });
+
+    it('mint with bcrvRenWSBTC', async function() {
+        let amount = _1e18.mul(10)
+        await deployer.mintCrvPoolToken('sbtc', alice, amount)
+        const contracts = await deployer.getPoolContracts('sbtc')
+        const [ lp, _, sett ] = contracts
+        await lp.approve(sett.address, amount)
+        await sett.deposit(amount)
+        await testMint(1, await sett.balanceOf(alice), [badgerPeak].concat(contracts))
     });
 
     it('mint with b-tbtc/sbtcCrv', async function() {
@@ -138,12 +132,12 @@ describe('BadgerSettPeak + SaddlePeak (mainnet-fork)', function() {
         await renWbtcSwap.exchange(0, 1, amount, 0)
     }
 
-    it('redeem in bcrvRenWSBTC', async function() {
-        await testRedeem(0, 'sbtc')
+    it('redeem in bcrvRenWBTC', async function() {
+        await testRedeem(0, 'ren')
     });
 
-    it('redeem in bcrvRenWBTC', async function() {
-        await testRedeem(1, 'ren')
+    it('redeem in bcrvRenWSBTC', async function() {
+        await testRedeem(1, 'sbtc')
     });
 
     it('redeem in b-tbtc/sbtcCrv', async function() {

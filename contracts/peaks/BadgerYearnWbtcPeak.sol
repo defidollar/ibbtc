@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity 0.6.11;
 pragma experimental ABIEncoderV2;
 
@@ -7,18 +9,18 @@ import {Math} from "@openzeppelin/contracts/math/Math.sol";
 
 import {AccessControlDefended} from "../common/AccessControlDefended.sol";
 import {ICore} from "../interfaces/ICore.sol";
-import {IyvWBTC} from "../interfaces/IyvWBTC.sol";
+import {IbyvWbtc} from "../interfaces/IbyvWbtc.sol";
 import {IPeak} from "../interfaces/IPeak.sol";
 
 contract BadgerYearnWbtcPeak is AccessControlDefended, IPeak {
     using SafeERC20 for IERC20;
-    using SafeERC20 for IyvWBTC;
+    using SafeERC20 for IbyvWbtc;
 
     using SafeMath for uint;
     using Math for uint;
 
     ICore public immutable core;
-    IyvWBTC public immutable byvWBTC;
+    IbyvWbtc public immutable byvWBTC;
 
     // END OF STORAGE VARIABLES
 
@@ -30,7 +32,7 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IPeak {
     */
     constructor(address _core, address _byvWBTC) public {
         core = ICore(_core);
-        byvWBTC = IyvWBTC(_byvWBTC);
+        byvWBTC = IbyvWbtc(_byvWBTC);
     }
 
     /**

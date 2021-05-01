@@ -30,20 +30,20 @@ describe('BadgerSettPeak (mainnet-fork)', function() {
         }
     })
 
-    it('mint with bcrvRenWSBTC', async function() {
-        let amount = _1e18.mul(10)
-        await deployer.mintCrvPoolToken('sbtc', alice, amount)
-        const contracts = await deployer.getPoolContracts('sbtc')
+    it('mint with bcrvRenWBTC', async function() {
+        const amount = _1e18.mul(10)
+        await deployer.mintCrvPoolToken('ren', alice, amount)
+        const contracts = await deployer.getPoolContracts('ren')
         const [ lp, _, sett ] = contracts
         await lp.approve(sett.address, amount)
         await sett.deposit(amount)
         await testMint(0, await sett.balanceOf(alice), [badgerPeak].concat(contracts))
     });
 
-    it('mint with bcrvRenWBTC', async function() {
-        const amount = _1e18.mul(10)
-        await deployer.mintCrvPoolToken('ren', alice, amount)
-        const contracts = await deployer.getPoolContracts('ren')
+    it('mint with bcrvRenWSBTC', async function() {
+        let amount = _1e18.mul(10)
+        await deployer.mintCrvPoolToken('sbtc', alice, amount)
+        const contracts = await deployer.getPoolContracts('sbtc')
         const [ lp, _, sett ] = contracts
         await lp.approve(sett.address, amount)
         await sett.deposit(amount)
@@ -60,12 +60,12 @@ describe('BadgerSettPeak (mainnet-fork)', function() {
         await testMint(2, await sett.balanceOf(alice), [badgerPeak].concat(contracts))
     });
 
-    it('redeem in bcrvRenWSBTC', async function() {
-        await testRedeem(0, 'sbtc', _1e18.mul(5))
+    it('redeem in bcrvRenWBTC', async function() {
+        await testRedeem(0, 'ren', _1e18.mul(5))
     });
 
-    it('redeem in bcrvRenWBTC', async function() {
-        await testRedeem(1, 'ren', _1e18.mul(5))
+    it('redeem in bcrvRenWSBTC', async function() {
+        await testRedeem(1, 'sbtc', _1e18.mul(5))
     });
 
     it('redeem in b-tbtc/sbtcCrv', async function() {
@@ -83,7 +83,7 @@ describe('BadgerSettPeak (mainnet-fork)', function() {
             sett.balanceOf(badgerPeak.address),
             core.accumulatedFee(),
         ])
-        const fee = amount.mul(mintAndRedeemFee).div(PRECISION)
+        const fee = amount.mul(await core.redeemFee()).div(PRECISION)
         const expected = amount.sub(fee)
             .mul(await core.pricePerShare())
             .mul(_1e18)
@@ -143,7 +143,7 @@ describe('BadgerSettPeak (mainnet-fork)', function() {
                 .mul((await bBTC.totalSupply()).add(accumulatedFee))
                 .div(await core.totalSystemAssets())
         }
-        const fee = mintedBbtc.mul(mintAndRedeemFee).div(PRECISION)
+        const fee = mintedBbtc.mul(await core.mintFee()).div(PRECISION)
         const expectedBbtc = mintedBbtc.sub(fee)
         expect(calcMint.bBTC).to.eq(expectedBbtc)
 

@@ -9,35 +9,17 @@ const byvWBTCHolder = '0xe9b05bc1fa8684ee3e01460aac2e64c678b9da5d'
 let mintAndRedeemFee = BigNumber.from(10)
 const PRECISION = BigNumber.from(1e4)
 const ZERO = BigNumber.from(0)
-const _1e18 = ethers.constants.WeiPerEther
 
 describe('BadgerYearnWbtcPeak (mainnet-fork)', function() {
     before('setup contracts', async function() {
         signers = await ethers.getSigners()
         alice = signers[0].address
         feeSink = '0x5b5cF8620292249669e1DCC73B753d01543D6Ac7' // DeFiDollar DAO Governance Multisig
-        artifacts = await deployer.setupMainnetContracts(feeSink, 12274034)
-        ;({ badgerPeak, core, bBTC } = artifacts)
-        byvWBTC = await ethers.getContractAt('IyvWBTC', '0x4b92d19c11435614CD49Af1b589001b7c08cD4D5')
+        artifacts = await deployer.setupMainnetContracts(feeSink)
+        ;({ badgerPeak, wbtcPeak, byvWBTC, core, bBTC } = artifacts)
     })
 
-    it('deploy YearnWbtc Peak', async function() {
-        const [ UpgradableProxy, BadgerYearnWbtcPeak ] = await Promise.all([
-            ethers.getContractFactory('UpgradableProxy'),
-            ethers.getContractFactory('BadgerYearnWbtcPeak')
-        ])
-        wbtcPeak = await UpgradableProxy.deploy()
-        await wbtcPeak.updateImplementation(
-            (await BadgerYearnWbtcPeak.deploy(core.address, byvWBTC.address)).address
-        )
-        wbtcPeak = await ethers.getContractAt('BadgerYearnWbtcPeak', wbtcPeak.address)
-    })
-
-    it('whitelist wbtc peak', async function() {
-        expect(await core.peaks(wbtcPeak.address)).to.eq(0) // Extinct
-
-        await core.whitelistPeak(wbtcPeak.address)
-
+    it('BadgerYearnWbtcPeak is whitelisted', async function() {
         expect(await core.peakAddresses(1)).to.eq(wbtcPeak.address)
         expect(await core.peaks(wbtcPeak.address)).to.eq(1) // Active
     })
@@ -54,7 +36,7 @@ describe('BadgerYearnWbtcPeak (mainnet-fork)', function() {
         // byvWBTC.pricePerShare() != 1e8, so bBTC amount must be estimated with pps
         const pps = await byvWBTC.pricePerShare()
         let mintedBbtc = amount.mul(pps).mul(100)
-        const fee = mintedBbtc.mul(mintAndRedeemFee).div(PRECISION)
+        const fee = mintedBbtc.mul(await core.mintFee()).div(PRECISION)
         const expectedBbtc = mintedBbtc.sub(fee)
 
         expect(calcMint.bBTC).to.eq(expectedBbtc)
@@ -82,7 +64,7 @@ describe('BadgerYearnWbtcPeak (mainnet-fork)', function() {
 
         await wbtcPeak.redeem(amount)
 
-        const fee = amount.mul(mintAndRedeemFee).div(PRECISION) // denominated in bbtc
+        const fee = amount.mul(await core.redeemFee()).div(PRECISION) // denominated in bbtc
         // byvWBTC.pricePerShare() != 1e8, so byvWBTC amount must be estimated with pps
         const expected = amount.sub(fee).div(pps).div(100)
 

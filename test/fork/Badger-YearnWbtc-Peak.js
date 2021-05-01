@@ -17,27 +17,10 @@ describe('BadgerSettPeak + BadgerYearnWbtcPeak (mainnet-fork)', function() {
         signers = await ethers.getSigners()
         alice = signers[0].address
         feeSink = '0x5b5cF8620292249669e1DCC73B753d01543D6Ac7' // DeFiDollar DAO Governance Multisig
-        ;({ badgerPeak, core, bBTC } = await deployer.setupMainnetContracts(feeSink, 12274034))
-        byvWBTC = await ethers.getContractAt('IyvWBTC', '0x4b92d19c11435614CD49Af1b589001b7c08cD4D5')
+        ;({ badgerPeak, wbtcPeak, byvWBTC, core, bBTC } = await deployer.setupMainnetContracts(feeSink))
     })
 
-    it('deploy BadgerYearnWbtcPeak Peak', async function() {
-        const [ UpgradableProxy, BadgerYearnWbtcPeak ] = await Promise.all([
-            ethers.getContractFactory('UpgradableProxy'),
-            ethers.getContractFactory('BadgerYearnWbtcPeak')
-        ])
-        wbtcPeak = await UpgradableProxy.deploy()
-        await wbtcPeak.updateImplementation(
-            (await BadgerYearnWbtcPeak.deploy(core.address, byvWBTC.address)).address
-        )
-        wbtcPeak = await ethers.getContractAt('BadgerYearnWbtcPeak', wbtcPeak.address)
-    })
-
-    it('whitelist BadgerYearnWbtcPeak peak', async function() {
-        expect(await core.peaks(wbtcPeak.address)).to.eq(0) // Extinct
-
-        await core.whitelistPeak(wbtcPeak.address)
-
+    it('BadgerYearnWbtcPeak is whitelisted', async function() {
         expect(await core.peakAddresses(1)).to.eq(wbtcPeak.address)
         expect(await core.peaks(wbtcPeak.address)).to.eq(1) // Active
     })
@@ -97,7 +80,7 @@ describe('BadgerSettPeak + BadgerYearnWbtcPeak (mainnet-fork)', function() {
         const [ lp, _, sett ] = contracts
         await lp.approve(sett.address, amount)
         await sett.deposit(amount)
-        await testMint(0, await sett.balanceOf(alice), [badgerPeak].concat(contracts))
+        await testMint(1, await sett.balanceOf(alice), [badgerPeak].concat(contracts))
     });
 
     it('mint with bcrvRenWBTC', async function() {
@@ -107,7 +90,7 @@ describe('BadgerSettPeak + BadgerYearnWbtcPeak (mainnet-fork)', function() {
         renWbtcSwap = swap
         await lp.approve(sett.address, amount)
         await sett.deposit(amount)
-        await testMint(1, await sett.balanceOf(alice), [ badgerPeak, lp, swap, sett ])
+        await testMint(0, await sett.balanceOf(alice), [ badgerPeak, lp, swap, sett ])
     });
 
     it('mint with b-tbtc/sbtcCrv', async function() {
@@ -146,11 +129,11 @@ describe('BadgerSettPeak + BadgerYearnWbtcPeak (mainnet-fork)', function() {
     }
 
     it('redeem in bcrvRenWSBTC', async function() {
-        await testRedeem(0, 'sbtc')
+        await testRedeem(1, 'sbtc')
     });
 
     it('redeem in bcrvRenWBTC', async function() {
-        await testRedeem(1, 'ren')
+        await testRedeem(0, 'ren')
     });
 
     it('redeem in b-tbtc/sbtcCrv', async function() {

@@ -23,7 +23,7 @@ describe('Core', function() {
     });
 
     it('whitelistPeak fails for non-contract account', async function() {
-        await expect(core.whitelistPeak(dummyPeak.address)).to.be.revertedWith('Transaction reverted: function call to a non-contract account')
+        await expect(core.whitelistPeak(dummyPeak.address)).to.be.revertedWith('Transaction reverted')
     })
 
     it('setPeakStatus fails from non-admin account', async function() {

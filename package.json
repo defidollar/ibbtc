@@ -1,16 +1,13 @@
 {
   "name": "badger-btc",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
     "test:dryrun": "DRYRUN=true hardhat test test/fork/*.js",
     "coverage": "hardhat coverage"
   },
-  "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.1",
     "@nomiclabs/hardhat-etherscan": "^2.1.1",
@@ -22,6 +19,7 @@
     "ethereum-waffle": "^3.2.1",
     "ethers": "^5.0.26",
     "hardhat": "^2.0.8",
+    "hardhat-spdx-license-identifier": "^2.0.3",
     "keccak256": "^1.0.2",
     "lodash": "^4.17.21",
     "merkletreejs": "^0.2.18",

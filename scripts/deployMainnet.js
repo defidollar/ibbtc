@@ -1,26 +1,27 @@
 const fs = require('fs')
 
 const crvPools = {
-    sbtc: {
-        swap: '0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714',
-        sett: '0xd04c48A53c111300aD41190D63681ed3dAd998eC'
-    },
-    ren: {
+    ren: { // crvRenWBTC [ ren, wbtc ]
         swap: '0x93054188d876f558f4a66B2EF1d97d16eDf0895B',
         sett: '0x6dEf55d2e18486B9dDfaA075bc4e4EE0B28c1545'
     },
-    tbtc: {
+    sbtc: { // crvRenWSBTC [ ren, wbtc, sbtc ]
+        swap: '0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714',
+        sett: '0xd04c48A53c111300aD41190D63681ed3dAd998eC'
+    },
+    tbtc: { // tbtc/sbtcCrv [ tbtc, ren, wbtc, sbtc ]
         swap: '0xC25099792E9349C7DD09759744ea681C7de2cb66',
         sett: '0xb9D076fDe463dbc9f915E5392F807315Bf940334'
     }
 }
 
 async function main() {
-    const [ UpgradableProxy, BadgerSettPeak, Core, bBTC ] = await Promise.all([
-        ethers.getContractFactory("UpgradableProxy"),
-        ethers.getContractFactory("BadgerSettPeak"),
-        ethers.getContractFactory("Core"),
-        ethers.getContractFactory("bBTC"),
+    const [ UpgradableProxy, BadgerSettPeak, BadgerYearnWbtcPeak, Core, bBTC ] = await Promise.all([
+        ethers.getContractFactory('UpgradableProxy'),
+        ethers.getContractFactory('BadgerSettPeak'),
+        ethers.getContractFactory('BadgerYearnWbtcPeak'),
+        ethers.getContractFactory('Core'),
+        ethers.getContractFactory('bBTC')
     ])
 
     let core = await UpgradableProxy.deploy()
@@ -32,24 +33,32 @@ async function main() {
     const coreImpl = await Core.deploy(bBtc.address)
     console.log({ coreImpl: coreImpl.address })
     await core.updateImplementation(coreImpl.address)
+    core = await ethers.getContractAt('Core', core.address)
 
     let badgerPeak = await UpgradableProxy.deploy()
     console.log({ badgerPeak: badgerPeak.address })
-
     const badgerPeakImpl = await BadgerSettPeak.deploy(core.address)
     console.log({ badgerPeakImpl: badgerPeakImpl.address })
     await badgerPeak.updateImplementation(badgerPeakImpl.address)
+    badgerPeak = await ethers.getContractAt('BadgerSettPeak', badgerPeak.address)
 
     const pools = Object.keys(crvPools).map(k => crvPools[k], ['swap', 'sett'])
     await badgerPeak.modifyWhitelistedCurvePools(pools)
 
-    const feeSink = '0x5b5cF8620292249669e1DCC73B753d01543D6Ac7' // DFD Governance Multisig
-    await core.setConfig(10, 10, feeSink)
+    let byvWbtcPeak = await UpgradableProxy.deploy()
+    console.log({ byvWbtcPeak: byvWbtcPeak.address })
+    const byvWbtcPeakImpl = await BadgerYearnWbtcPeak.deploy(core.address, '0x4b92d19c11435614CD49Af1b589001b7c08cD4D5') // byvWbtc
+    console.log({ byvWbtcPeakImpl: byvWbtcPeakImpl.address })
+    await byvWbtcPeak.updateImplementation(byvWbtcPeakImpl.address)
 
+    const feeSink = '0x5b5cF8620292249669e1DCC73B753d01543D6Ac7' // DFD Governance Multisig
+    await core.setConfig(30 /* 0.3% */, 50 /* 0.5% */, feeSink)
     await core.whitelistPeak(badgerPeak.address)
+    await core.whitelistPeak(byvWbtcPeak.address)
 
     const config = {
         badgerPeak: badgerPeak.address,
+        byvWbtcPeak: byvWbtcPeak.address,
         bBtc: bBtc.address,
         core: core.address
     }

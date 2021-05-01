@@ -11,24 +11,24 @@ const signer = ethers.provider.getSigner(wBTCWhale)
 const deployer = '0x08F7506E0381f387e901c9D0552cf4052A0740a4'
 
 const crvPools = {
-    sbtc: {
-        lpToken: '0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3', // crvRenWSBTC
-        swap: '0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714',
-        sett: '0xd04c48A53c111300aD41190D63681ed3dAd998eC'
-    },
     ren: {
-        lpToken: '0x49849C98ae39Fff122806C06791Fa73784FB3675', // crvRenWBTC
+        lpToken: '0x49849C98ae39Fff122806C06791Fa73784FB3675', // crvRenWBTC [ ren, wbtc ]
         swap: '0x93054188d876f558f4a66B2EF1d97d16eDf0895B',
         sett: '0x6dEf55d2e18486B9dDfaA075bc4e4EE0B28c1545'
     },
+    sbtc: {
+        lpToken: '0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3', // crvRenWSBTC [ ren, wbtc, sbtc ]
+        swap: '0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714',
+        sett: '0xd04c48A53c111300aD41190D63681ed3dAd998eC'
+    },
     tbtc: {
-        lpToken: '0x64eda51d3Ad40D56b9dFc5554E06F94e1Dd786Fd', // tbtc/sbtcCrv
+        lpToken: '0x64eda51d3Ad40D56b9dFc5554E06F94e1Dd786Fd', // tbtc/sbtcCrv [ tbtc, ren, wbtc, sbtc ]
         swap: '0xC25099792E9349C7DD09759744ea681C7de2cb66',
         sett: '0xb9D076fDe463dbc9f915E5392F807315Bf940334'
     }
 }
 
-async function setupMainnetContracts(feeSink, blockNumber = 12080365) {
+async function setupMainnetContracts(feeSink, blockNumber = 12342315) {
     await network.provider.request({
         method: "hardhat_reset",
         params: [{
@@ -52,32 +52,41 @@ async function setupMainnetContracts(feeSink, blockNumber = 12080365) {
 
         return {
             badgerPeak: await ethers.getContractAt('BadgerSettPeak', config.badgerPeak),
+            wbtcPeak: await ethers.getContractAt('BadgerYearnWbtcPeak', config.byvWbtcPeak),
+            byvWBTC: await ethers.getContractAt('IbyvWbtc', config.byvWbtc),
             bBTC: await ethers.getContractAt('bBTC', config.bBtc),
             core: await ethers.getContractAt('Core', config.core)
         }
     } else {
-        const [ UpgradableProxy, BadgerSettPeak, Core, BBTC ] = await Promise.all([
+        const [ UpgradableProxy, BadgerSettPeak, BadgerYearnWbtcPeak, Core, BBTC ] = await Promise.all([
             ethers.getContractFactory('UpgradableProxy'),
             ethers.getContractFactory('BadgerSettPeak'),
+            ethers.getContractFactory('BadgerYearnWbtcPeak'),
             ethers.getContractFactory('Core'),
-            ethers.getContractFactory('bBTC'),
+            ethers.getContractFactory('bBTC')
         ])
-        let [ core, badgerPeak ] = await Promise.all([
+        let [ core, badgerPeak, wbtcPeak ] = await Promise.all([
+            UpgradableProxy.deploy(),
             UpgradableProxy.deploy(),
             UpgradableProxy.deploy()
         ])
         const bBTC = await BBTC.deploy(core.address)
         await core.updateImplementation((await Core.deploy(bBTC.address)).address)
+
         await badgerPeak.updateImplementation((await BadgerSettPeak.deploy(core.address)).address)
-        ;([ core, badgerPeak ] = await Promise.all([
+
+        const byvWBTC = await ethers.getContractAt('IbyvWbtc', '0x4b92d19c11435614CD49Af1b589001b7c08cD4D5')
+        await wbtcPeak.updateImplementation((await BadgerYearnWbtcPeak.deploy(core.address, byvWBTC.address)).address)
+
+        ;([ core, badgerPeak, wbtcPeak ] = await Promise.all([
             ethers.getContractAt('Core', core.address),
             ethers.getContractAt('BadgerSettPeak', badgerPeak.address),
+            ethers.getContractAt('BadgerYearnWbtcPeak', wbtcPeak.address),
         ]))
-        await Promise.all([
-            core.whitelistPeak(badgerPeak.address),
-            core.setConfig(10, 10, feeSink)
-        ])
-        return { badgerPeak, bBTC, core }
+        await core.setConfig(10, 10, feeSink)
+        await core.whitelistPeak(badgerPeak.address)
+        await core.whitelistPeak(wbtcPeak.address)
+        return { badgerPeak, wbtcPeak, byvWBTC, bBTC, core }
     }
 }
 
