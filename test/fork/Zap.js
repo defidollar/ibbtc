@@ -34,7 +34,7 @@ describe('Zap (mainnet-fork)', function() {
             ethers.getContractAt('Core', config.core),
             ethers.getContractFactory('Zap')
         ]))
-        zap = await Zap.deploy(badgerPeak.address, wbtcPeak.address, bBTC.address)
+        zap = await Zap.deploy()
     })
 
     it('admin whitelists', async function() {
@@ -53,32 +53,36 @@ describe('Zap (mainnet-fork)', function() {
     })
 
     it('mint with renbtc', async function() {
-        const amount = _1e8.mul(9)
+        let amount = _1e8.mul(9)
         const ren = await deployer.getRenbtc(alice, amount)
         await ren.approve(zap.address, amount)
 
-        const calcMint = await zap.calcMintWithRen(amount.div(3))
-        // console.log(calcMint, calcMint.bBTC.toString())
+        amount = amount.div(3)
+
+        const calcMint = await zap.calcMint(ren.address, amount)
+        const calcMintWithRen = await zap.calcMintWithRen(amount)
+        expect(calcMint).to.deep.eq(calcMintWithRen)
+        // console.log(calcMint, calcMintWithRen)
 
         let prev = await bBTC.balanceOf(alice)
-        await zap.mint(ren.address, amount.div(3), 0 /* crvRenWBTC */, 0 /* renbtc idx */, 0)
+        await zap.mint(ren.address, amount, 0 /* crvRenWBTC */, 0 /* renbtc idx */, 0)
         let now = await bBTC.balanceOf(alice)
         let minted = parseFloat(now.sub(prev).toString()) / 1e18
         expect(minted > 2.9).to.be.true
 
         prev = now
-        await zap.mint(ren.address, amount.div(3), 1 /* crvRenWSBTC */, 0 /* renbtc idx */, 0)
+        await zap.mint(ren.address, amount, 1 /* crvRenWSBTC */, 0 /* renbtc idx */, 0)
         now = await bBTC.balanceOf(alice)
         minted = parseFloat(now.sub(prev).toString()) / 1e18
         expect(minted > 2.9).to.be.true
 
         prev = now
-        await zap.mint(ren.address, amount.div(3), 2 /* tbtc/sbtcCrv */, 1 /* renbtc idx */, 0)
+        await zap.mint(ren.address, amount, 2 /* tbtc/sbtcCrv */, 1 /* renbtc idx */, 0)
         now = await bBTC.balanceOf(alice)
         minted = parseFloat(now.sub(prev).toString()) / 1e18
         expect(minted > 2.9).to.be.true
 
-        const ibbtc = parseFloat((await bBTC.balanceOf(alice)).toString()) / 1e18
+        const ibbtc = parseFloat(now.toString()) / 1e18
         expect(ibbtc > 8.9).to.be.true
     })
 
@@ -89,8 +93,10 @@ describe('Zap (mainnet-fork)', function() {
 
         amount = amount.div(4)
 
-        const calcMint = await zap.calcMintWithWbtc(amount)
-        // console.log(calcMint, calcMint.bBTC.toString())
+        const calcMint = await zap.calcMint(wbtc.address, amount)
+        const calcMintWithWbtc = await zap.calcMintWithWbtc(amount)
+        expect(calcMint).to.deep.eq(calcMintWithWbtc)
+        // console.log(calcMint, calcMintWithWbtc)
 
         let prev = await bBTC.balanceOf(alice)
         await zap.mint(wbtc.address, amount, 0 /* crvRenWBTC */, 1 /* wbtc idx */, 0)
@@ -117,6 +123,6 @@ describe('Zap (mainnet-fork)', function() {
         expect(minted > 2.9).to.be.true
 
         const ibbtc = parseFloat((await bBTC.balanceOf(alice)).toString()) / 1e18
-        expect(ibbtc > 8.9).to.be.true
+        expect(ibbtc > 17.8).to.be.true
     })
 })
