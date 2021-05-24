@@ -46,11 +46,10 @@ contract Zap {
         });
         pools[3] = Pool({ // Exclusive to wBTC
             lpToken: wbtc,
-            deposit: ICurveFi(0x0),
             sett: ISett(0x4b92d19c11435614CD49Af1b589001b7c08cD4D5) // byvWbtc
         });
 
-
+        // Since we don't hold any tokens in this contract, we can optimize gas usage in mint calls by providing infinite approvals
         for (uint i = 0; i < pools.length; i++) {
             Pool memory pool = pools[i];
             pool.lpToken.safeApprove(address(pool.sett), uint(-1));
