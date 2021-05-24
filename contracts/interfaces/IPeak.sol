@@ -10,4 +10,9 @@ interface IBadgerSettPeak is IPeak {
     function mint(uint poolId, uint inAmount, bytes32[] calldata merkleProof)
         external
         returns(uint outAmount);
+
+    function calcMint(uint poolId, uint inAmount)
+        external
+        view
+        returns(uint bBTC, uint fee);
 }

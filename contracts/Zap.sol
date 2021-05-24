@@ -11,6 +11,7 @@ import {IbBTC} from "./interfaces/IbBTC.sol";
 
 contract Zap {
     using SafeERC20 for IERC20;
+    using SafeMath for uint;
 
     struct Pool {
         IERC20 lpToken;
@@ -83,10 +84,70 @@ contract Zap {
             _pool.add_liquidity(amounts, 0);
         }
     }
+
+    function calcMintWithRen(uint amount) external view returns(uint poolId, uint idx, uint bBTC, uint fee) {
+        uint _ibbtc;
+        uint _fee;
+
+        // poolId=0, idx=0
+        (bBTC, fee) = lpToIbbtc(0, pools[0].deposit.calc_token_amount([amount,0], true));
+
+        (_ibbtc, _fee) = lpToIbbtc(1, pools[1].deposit.calc_token_amount([amount,0,0], true));
+        if (_ibbtc > bBTC) {
+            bBTC = _ibbtc;
+            fee = _fee;
+            poolId = 1;
+            // idx=0
+        }
+
+        (_ibbtc, _fee) = lpToIbbtc(2, pools[2].deposit.calc_token_amount([0,amount,0,0], true));
+        if (_ibbtc > bBTC) {
+            bBTC = _ibbtc;
+            fee = _fee;
+            poolId = 2;
+            idx = 1;
+        }
+    }
+
+    function calcMintWithWbtc(uint amount) external view returns(uint poolId, uint idx, uint bBTC, uint fee) {
+        uint _ibbtc;
+        uint _fee;
+
+        // poolId=0
+        (bBTC, fee) = lpToIbbtc(0, pools[0].deposit.calc_token_amount([0,amount], true));
+        idx = 1;
+
+        (_ibbtc, _fee) = lpToIbbtc(1, pools[1].deposit.calc_token_amount([0,amount,0], true));
+        if (_ibbtc > bBTC) {
+            bBTC = _ibbtc;
+            fee = _fee;
+            poolId = 1;
+            // idx=1
+        }
+
+        (_ibbtc, _fee) = lpToIbbtc(2, pools[2].deposit.calc_token_amount([0,0,amount,0], true));
+        if (_ibbtc > bBTC) {
+            bBTC = _ibbtc;
+            fee = _fee;
+            poolId = 2;
+            idx = 2;
+        }
+    }
+
+    function lpToIbbtc(uint poolId, uint _lp) public view returns(uint bBTC, uint fee) {
+        Pool memory pool = pools[poolId];
+        uint _sett = _lp.mul(1e18).div(pool.sett.getPricePerFullShare());
+        return peak.calcMint(poolId, _sett);
+    }
 }
 
 interface ICurveFi {
     function add_liquidity(uint256[2] calldata amounts, uint256 min_mint_amount) external;
+    function calc_token_amount(uint256[2] calldata amounts, bool isDeposit) external view returns(uint);
+
     function add_liquidity(uint256[3] calldata amounts, uint256 min_mint_amount) external;
+    function calc_token_amount(uint256[3] calldata amounts, bool isDeposit) external view returns(uint);
+
     function add_liquidity(uint256[4] calldata amounts, uint256 min_mint_amount) external;
+    function calc_token_amount(uint256[4] calldata amounts, bool isDeposit) external view returns(uint);
 }
