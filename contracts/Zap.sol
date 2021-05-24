@@ -46,6 +46,7 @@ contract Zap {
         });
         pools[3] = Pool({ // Exclusive to wBTC
             lpToken: wbtc,
+            deposit: ICurveFi(0x0),
             sett: ISett(0x4b92d19c11435614CD49Af1b589001b7c08cD4D5) // byvWbtc
         });
 
