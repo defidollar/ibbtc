@@ -6,23 +6,27 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20, SafeMath} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 import {ISett} from "./interfaces/ISett.sol";
-import {IBadgerSettPeak} from "./interfaces/IPeak.sol";
+import {IBadgerSettPeak, IByvWbtcPeak} from "./interfaces/IPeak.sol";
 import {IbBTC} from "./interfaces/IbBTC.sol";
+import {IbyvWbtc} from "./interfaces/IbyvWbtc.sol";
+import "hardhat/console.sol";
 
 contract Zap {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
+
+    IBadgerSettPeak public immutable settPeak;
+    IByvWbtcPeak public immutable byvWbtcPeak;
+    IbBTC public immutable ibbtc;
 
     struct Pool {
         IERC20 lpToken;
         ICurveFi deposit;
         ISett sett;
     }
-    Pool[3] public pools;
-    IBadgerSettPeak public immutable peak;
-    IbBTC public immutable ibbtc;
+    Pool[4] public pools;
 
-    constructor(IBadgerSettPeak _peak, IbBTC _ibbtc) public {
+    constructor(IBadgerSettPeak _settPeak, IByvWbtcPeak _byvWbtcPeak, IbBTC _ibbtc) public {
         pools[0] = Pool({ // crvRenWBTC [ ren, wbtc ]
             lpToken: IERC20(0x49849C98ae39Fff122806C06791Fa73784FB3675),
             deposit: ICurveFi(0x93054188d876f558f4a66B2EF1d97d16eDf0895B),
@@ -38,22 +42,42 @@ contract Zap {
             deposit: ICurveFi(0xaa82ca713D94bBA7A89CEAB55314F9EfFEdDc78c),
             sett: ISett(0xb9D076fDe463dbc9f915E5392F807315Bf940334)
         });
+        pools[3] = Pool({ // Exclusive to wBTC
+            // lpToken and deposit are same
+            lpToken: IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599), // wbtc
+            deposit: ICurveFi(0x0),
+            sett: ISett(0x4b92d19c11435614CD49Af1b589001b7c08cD4D5) // byvWbtc
+        });
+
+        settPeak = _settPeak;
+        byvWbtcPeak = _byvWbtcPeak;
+        ibbtc = _ibbtc;
 
         for (uint i = 0; i < pools.length; i++) {
             Pool memory pool = pools[i];
             pool.lpToken.safeApprove(address(pool.sett), uint(-1));
-            IERC20(address(pool.sett)).safeApprove(address(_peak), uint(-1));
+            if (i < 3) {
+                IERC20(address(pool.sett)).safeApprove(address(_settPeak), uint(-1));
+            } else {
+                IERC20(address(pool.sett)).safeApprove(address(_byvWbtcPeak), uint(-1));
+            }
         }
-        peak = _peak;
-        ibbtc = _ibbtc;
     }
 
-    function mint(IERC20 token, uint amount, uint poolId, uint idx) external {
+    function mint(IERC20 token, uint amount, uint poolId, uint idx, uint minOut) external {
         token.safeTransferFrom(msg.sender, address(this), amount);
         Pool memory pool = pools[poolId];
-        _addLiquidity(token, amount, pool.deposit, idx, poolId + 2); // pools are such that the #tokens they support is +2 from their poolId.
-        pool.sett.deposit(pool.lpToken.balanceOf(address(this)));
-        uint _ibbtc = peak.mint(poolId, pool.sett.balanceOf(address(this)), new bytes32[](0));
+        uint _ibbtc;
+
+        if (poolId < 3) { // setts
+            _addLiquidity(token, amount, pool.deposit, idx, poolId + 2); // pools are such that the #tokens they support is +2 from their poolId.
+            pool.sett.deposit(pool.lpToken.balanceOf(address(this)));
+            _ibbtc = settPeak.mint(poolId, pool.sett.balanceOf(address(this)), new bytes32[](0));
+        } else if (poolId == 3) { // byvwbtc
+            IbyvWbtc(address(pool.sett)).deposit(new bytes32[](0));
+            _ibbtc = byvWbtcPeak.mint(pool.sett.balanceOf(address(this)), new bytes32[](0));
+        }
+        require(_ibbtc >= minOut, "INSUFFICIENT_IBBTC"); // used for capping slippage in curve pools
         IERC20(address(ibbtc)).safeTransfer(msg.sender, _ibbtc);
     }
 
@@ -132,12 +156,21 @@ contract Zap {
             poolId = 2;
             idx = 2;
         }
+
+        // for byvwbtc, sett.pricePerShare returns a wbtc value, as opposed to lpToken amount in setts
+        (_ibbtc, _fee) = byvWbtcPeak.calcMint(amount.mul(1e8).div(IbyvWbtc(address(pools[3].sett)).pricePerShare()));
+        if (_ibbtc > bBTC) {
+            bBTC = _ibbtc;
+            fee = _fee;
+            poolId = 3;
+            // idx value will be ignored anyway
+        }
     }
 
     function lpToIbbtc(uint poolId, uint _lp) public view returns(uint bBTC, uint fee) {
         Pool memory pool = pools[poolId];
         uint _sett = _lp.mul(1e18).div(pool.sett.getPricePerFullShare());
-        return peak.calcMint(poolId, _sett);
+        return settPeak.calcMint(poolId, _sett);
     }
 }
 
@@ -150,4 +183,8 @@ interface ICurveFi {
 
     function add_liquidity(uint256[4] calldata amounts, uint256 min_mint_amount) external;
     function calc_token_amount(uint256[4] calldata amounts, bool isDeposit) external view returns(uint);
+}
+
+interface IyvWbtc {
+    function deposit(uint) external;
 }

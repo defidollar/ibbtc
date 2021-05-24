@@ -1,7 +1,10 @@
 const { expect } = require("chai");
 const { BigNumber } = ethers
 
-const { impersonateAccount } = require('./utils')
+const {
+    constants: { _1e18 },
+    impersonateAccount
+} = require('./utils');
 
 const wBTC = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599'
 const wBTCWhale = '0x875abe6f1e2aba07bed4a3234d8555a0d7656d12' // has 150 wbtc
@@ -9,7 +12,7 @@ const wBTCWhale = '0x875abe6f1e2aba07bed4a3234d8555a0d7656d12' // has 150 wbtc
 const renBTC = '0xeb4c2781e4eba804ce9a9803c67d0893436bb27d'
 const renBTCWhale = '0xaae0633e15200bc9c50d45cd762477d268e126bd' // has 1293 renbtc at block=12495130
 
-const deployer = '0x08F7506E0381f387e901c9D0552cf4052A0740a4'
+const deployer = '0x08f7506e0381f387e901c9d0552cf4052a0740a4'
 
 const crvPools = {
     ren: {
@@ -43,13 +46,14 @@ async function setupMainnetContracts(feeSink, blockNumber = 12342315) {
 
     if (process.env.DRYRUN === 'true') {
         const config = require('../deployments/mainnet.json')
-        console.log('Using deployed contracts', config)
 
-        await impersonateAccount(deployer)
-        let core = await ethers.getContractAt('UpgradableProxy', config.core)
-        let badgerPeak = await ethers.getContractAt('UpgradableProxy', config.badgerPeak)
-        await core.connect(ethers.provider.getSigner(deployer)).transferOwnership((await ethers.getSigners())[0].address)
-        await badgerPeak.connect(ethers.provider.getSigner(deployer)).transferOwnership((await ethers.getSigners())[0].address)
+        const alice = (await ethers.getSigners())[0].address
+        await impersonateAccount(deployer);
+        (await Promise.all([
+            ethers.getContractAt('UpgradableProxy', config.core),
+            ethers.getContractAt('UpgradableProxy', config.badgerPeak),
+            ethers.getContractAt('UpgradableProxy', config.byvWbtcPeak)
+        ])).map(async c => await c.connect(ethers.provider.getSigner(deployer)).transferOwnership(alice))
 
         return {
             badgerPeak: await ethers.getContractAt('BadgerSettPeak', config.badgerPeak),

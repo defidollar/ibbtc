@@ -10,9 +10,9 @@ import {Math} from "@openzeppelin/contracts/math/Math.sol";
 import {AccessControlDefended} from "../common/AccessControlDefended.sol";
 import {ICore} from "../interfaces/ICore.sol";
 import {IbyvWbtc} from "../interfaces/IbyvWbtc.sol";
-import {IPeak} from "../interfaces/IPeak.sol";
+import {IByvWbtcPeak} from "../interfaces/IPeak.sol";
 
-contract BadgerYearnWbtcPeak is AccessControlDefended, IPeak {
+contract BadgerYearnWbtcPeak is AccessControlDefended, IByvWbtcPeak {
     using SafeERC20 for IERC20;
     using SafeERC20 for IbyvWbtc;
 
@@ -42,6 +42,7 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IPeak {
     * @return outAmount Amount of bBTC minted to user's account
     */
     function mint(uint inAmount, bytes32[] calldata merkleProof)
+        override
         external
         defend
         blockLocked
@@ -75,6 +76,7 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IPeak {
     /* ##### View ##### */
 
     function calcMint(uint inAmount)
+        override
         external
         view
         returns(uint bBTC, uint fee)

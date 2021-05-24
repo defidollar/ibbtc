@@ -16,3 +16,14 @@ interface IBadgerSettPeak is IPeak {
         view
         returns(uint bBTC, uint fee);
 }
+
+interface IByvWbtcPeak is IPeak {
+    function mint(uint inAmount, bytes32[] calldata merkleProof)
+        external
+        returns(uint outAmount);
+
+    function calcMint(uint inAmount)
+        external
+        view
+        returns(uint bBTC, uint fee);
+}
