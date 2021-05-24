@@ -22,6 +22,12 @@ module.exports = {
             chainId: 1,
             gasPrice: 45000000000, // 45 gwei
             accounts: [ PRIVATE_KEY ]
+        },
+        rinkeby: {
+            url: `https://rinkeby.infura.io/v3/${process.env.INFURA_PROJECT_ID}`,
+            chainId: 4,
+            gasPrice: 2000000000, // 2 gwei
+            accounts: [ PRIVATE_KEY ]
         }
     },
     solidity: {

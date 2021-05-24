@@ -18,4 +18,6 @@ contract byvWbtc is ERC20, IbyvWbtc {
     function pricePerShare() override external view returns (uint) {
         return 1e8;
     }
+
+    function deposit(bytes32[] calldata merkleProof) override external {}
 }

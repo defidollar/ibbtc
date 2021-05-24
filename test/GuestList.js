@@ -7,10 +7,9 @@ const deployer = require('./deployer')
 
 let fee = BigNumber.from(10)
 const PRECISION = BigNumber.from(10000)
-const ZERO = BigNumber.from(0)
 const _1e18 = ethers.constants.WeiPerEther
 
-describe('GuestList', function() {
+describe.skip('GuestList', function() {
     before('setup contracts', async function() {
         signers = await ethers.getSigners()
         alice = signers[0].address

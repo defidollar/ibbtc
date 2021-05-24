@@ -12,9 +12,9 @@ import {AccessControlDefended} from "../common/AccessControlDefended.sol";
 import {ISwap} from "../interfaces/ISwap.sol";
 import {ICore} from "../interfaces/ICore.sol";
 import {ISett} from "../interfaces/ISett.sol";
-import {IPeak} from "../interfaces/IPeak.sol";
+import {IBadgerSettPeak} from "../interfaces/IPeak.sol";
 
-contract BadgerSettPeak is AccessControlDefended, IPeak {
+contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
     using SafeERC20 for IERC20;
     using SafeERC20 for ISett;
     using SafeMath for uint;
@@ -49,6 +49,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
     * @return outAmount Amount of bBTC minted to user's account
     */
     function mint(uint poolId, uint inAmount, bytes32[] calldata merkleProof)
+        override
         external
         defend
         blockLocked
@@ -87,6 +88,7 @@ contract BadgerSettPeak is AccessControlDefended, IPeak {
     /* ##### View ##### */
 
     function calcMint(uint poolId, uint inAmount)
+        override
         external
         view
         returns(uint bBTC, uint fee)
