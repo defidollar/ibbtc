@@ -3,10 +3,11 @@ const { BigNumber } = ethers
 
 const { impersonateAccount } = require('./utils')
 
-const wbtcWhaleBalance = BigNumber.from(150).mul(1e8) // wbtc has 8 decimals
 const wBTC = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599'
-const wBTCWhale = '0x875abe6f1e2aba07bed4a3234d8555a0d7656d12'
-const signer = ethers.provider.getSigner(wBTCWhale)
+const wBTCWhale = '0x875abe6f1e2aba07bed4a3234d8555a0d7656d12' // has 150 wbtc
+
+const renBTC = '0xeb4c2781e4eba804ce9a9803c67d0893436bb27d'
+const renBTCWhale = '0xaae0633e15200bc9c50d45cd762477d268e126bd' // has 1293 renbtc at block=12495130
 
 const deployer = '0x08F7506E0381f387e901c9D0552cf4052A0740a4'
 
@@ -103,7 +104,8 @@ async function mintCrvPoolToken(pool, account, a) {
         ethers.getContractAt('IERC20', wBTC),
         ethers.getContractAt('IERC20', crvPools[pool].lpToken)
     ])
-    const amount = wbtcWhaleBalance.div(10)
+    BigNumber.from(150).mul(1e8)
+    const amount = BigNumber.from(15).mul(1e8) // wbtc has 8 decimals and whale has 150 wbtc
     let _deposit, _amounts
     switch (pool) {
         case 'ren':
@@ -118,15 +120,24 @@ async function mintCrvPoolToken(pool, account, a) {
             _deposit = await ethers.getContractAt('tbtcDeposit', '0xaa82ca713D94bBA7A89CEAB55314F9EfFEdDc78c')
             _amounts = [0, 0, amount, 0] // [ tbtc, ren, wbtc, sbtc ]
     }
+    const signer = ethers.provider.getSigner(wBTCWhale)
     await _wBTC.connect(signer).approve(_deposit.address, amount)
     await _deposit.connect(signer).add_liquidity(_amounts, 0)
     await _lpToken.connect(signer).transfer(account, a)
 }
 
 async function getWbtc(account, amount) {
+    await impersonateAccount(wBTCWhale)
     const _wBTC = await ethers.getContractAt('IERC20', wBTC)
-    await _wBTC.connect(signer).transfer(account, amount)
+    await _wBTC.connect(ethers.provider.getSigner(wBTCWhale)).transfer(account, amount)
     return _wBTC
+}
+
+async function getRenbtc(account, amount) {
+    await impersonateAccount(renBTCWhale)
+    const _ren = await ethers.getContractAt('IERC20', renBTC)
+    await _ren.connect(ethers.provider.getSigner(renBTCWhale)).transfer(account, amount)
+    return _ren
 }
 
 async function setupContracts(feeSink) {
@@ -149,7 +160,9 @@ async function setupContracts(feeSink) {
     core = await ethers.getContractAt('Core', core.address)
 
     let badgerPeak = await UpgradableProxy.deploy()
-    await badgerPeak.updateImplementation((await BadgerSettPeak.deploy(core.address)).address)
+
+    const impl = await BadgerSettPeak.deploy(core.address, { gasLimit: 5000000 })
+    await badgerPeak.updateImplementation(impl.address)
     badgerPeak = await ethers.getContractAt('BadgerSettPeak', badgerPeak.address)
 
     const sett = await Sett.deploy(curveLPToken.address)
@@ -169,5 +182,6 @@ module.exports = {
     getPoolContracts,
     mintCrvPoolToken,
     getWbtc,
+    getRenbtc,
     crvPools
 }
