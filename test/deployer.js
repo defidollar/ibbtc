@@ -1,10 +1,7 @@
 const { expect } = require("chai");
 const { BigNumber } = ethers
 
-const {
-    constants: { _1e18 },
-    impersonateAccount
-} = require('./utils');
+const { impersonateAccount } = require('./utils');
 
 const wBTC = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599'
 const wBTCWhale = '0x875abe6f1e2aba07bed4a3234d8555a0d7656d12' // has 150 wbtc

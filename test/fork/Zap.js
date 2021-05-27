@@ -10,6 +10,7 @@ const {
 
 const badgerMultiSig = '0xB65cef03b9B89f99517643226d76e286ee999e77'
 const ibbtcMetaSig = '0xCF7346A5E41b0821b80D5B3fdc385EEB6Dc59F44'
+const _deployer = '0x08f7506e0381f387e901c9d0552cf4052a0740a4'
 
 describe('Zap (mainnet-fork)', function() {
     before('setup contracts', async function() {
@@ -21,7 +22,7 @@ describe('Zap (mainnet-fork)', function() {
             params: [{
                 forking: {
                     jsonRpcUrl: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY}`,
-                    blockNumber: 12495510
+                    blockNumber: 12512112
                 }
             }]
         })
@@ -34,7 +35,13 @@ describe('Zap (mainnet-fork)', function() {
             ethers.getContractAt('Core', config.core),
             ethers.getContractFactory('Zap')
         ]))
-        zap = await Zap.deploy()
+        if (process.env.DRYRUN === 'true') {
+            zap = await ethers.getContractAt('Zap', config.zap)
+            await impersonateAccount(_deployer)
+            await zap.connect(ethers.provider.getSigner(_deployer)).transferOwnership(alice)
+        } else {
+            zap = await Zap.deploy()
+        }
     })
 
     it('admin whitelists', async function() {
@@ -124,5 +131,21 @@ describe('Zap (mainnet-fork)', function() {
 
         const ibbtc = parseFloat((await bBTC.balanceOf(alice)).toString()) / 1e18
         expect(ibbtc > 17.8).to.be.true
+    })
+
+    it('approveContractAccess', async function() {
+        const ZapCall = await ethers.getContractFactory('ZapCall')
+        const zapCall = await ZapCall.deploy()
+        let amount = _1e8.mul(5)
+        const wbtc = await deployer.getWbtc(zapCall.address, amount)
+
+        await expect(zapCall.mint(wbtc.address, zap.address)).to.be.revertedWith('ACCESS_DENIED')
+
+        await zap.approveContractAccess(zapCall.address)
+
+        await zapCall.mint(wbtc.address, zap.address)
+
+        const ibbtc = parseFloat((await bBTC.balanceOf(zapCall.address)).toString()) / 1e18
+        expect(ibbtc > 4.9).to.be.true
     })
 })

@@ -20,7 +20,7 @@ module.exports = {
         mainnet: {
             url: `https://mainnet.infura.io/v3/${process.env.INFURA_PROJECT_ID}`,
             chainId: 1,
-            gasPrice: 45000000000, // 45 gwei
+            gasPrice: 30000000000, // 30 gwei
             accounts: [ PRIVATE_KEY ]
         },
         rinkeby: {

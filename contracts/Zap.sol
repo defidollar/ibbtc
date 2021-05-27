@@ -5,12 +5,14 @@ pragma solidity 0.6.11;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20, SafeMath} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
+import {AccessControlDefended} from "./common/AccessControlDefended.sol";
+
 import {ISett} from "./interfaces/ISett.sol";
 import {IBadgerSettPeak, IByvWbtcPeak} from "./interfaces/IPeak.sol";
 import {IbBTC} from "./interfaces/IbBTC.sol";
 import {IbyvWbtc} from "./interfaces/IbyvWbtc.sol";
 
-contract Zap {
+contract Zap is AccessControlDefended {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
 
@@ -73,7 +75,12 @@ contract Zap {
     * @param minOut Minimum amount of ibbtc to mint. Use for capping slippage while adding liquidity to curve pool.
     * @return _ibbtc Minted ibbtc amount
     */
-    function mint(IERC20 token, uint amount, uint poolId, uint idx, uint minOut) external returns(uint _ibbtc) {
+    function mint(IERC20 token, uint amount, uint poolId, uint idx, uint minOut)
+        external
+        defend
+        blockLocked
+        returns(uint _ibbtc)
+    {
         Pool memory pool = pools[poolId];
 
         token.safeTransferFrom(msg.sender, address(this), amount);

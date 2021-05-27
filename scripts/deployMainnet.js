@@ -68,7 +68,13 @@ async function main() {
     )
 }
 
-main()
+async function deployZap() {
+    const Zap = await ethers.getContractFactory('Zap')
+    const zap = await Zap.deploy()
+    console.log({ zap: zap.address })
+}
+
+deployZap()
 .then(() => process.exit(0))
 .catch(error => {
     console.error(error);
