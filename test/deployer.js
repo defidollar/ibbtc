@@ -127,10 +127,10 @@ async function mintCrvPoolToken(pool, account, a) {
     await _lpToken.connect(signer).transfer(account, a)
 }
 
-async function getWbtc(account, amount) {
-    await impersonateAccount(wBTCWhale)
+async function getWbtc(account, amount, whale = wBTCWhale) {
+    await impersonateAccount(whale)
     const _wBTC = await ethers.getContractAt('IERC20', wBTC)
-    await _wBTC.connect(ethers.provider.getSigner(wBTCWhale)).transfer(account, amount)
+    await _wBTC.connect(ethers.provider.getSigner(whale)).transfer(account, amount)
     return _wBTC
 }
 

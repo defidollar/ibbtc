@@ -1,16 +1,15 @@
 const _ = require('lodash');
 const { expect } = require("chai");
-const { BigNumber } = ethers
 
 const deployer = require('../deployer')
 const {
     constants: { _1e8, _1e18, NULL },
     impersonateAccount
 } = require('../utils');
-
 const badgerMultiSig = '0xB65cef03b9B89f99517643226d76e286ee999e77'
 const ibbtcMetaSig = '0xCF7346A5E41b0821b80D5B3fdc385EEB6Dc59F44'
 const _deployer = '0x08f7506e0381f387e901c9d0552cf4052a0740a4'
+const wBTCWhale = '0x28c6c06298d514db089934071355e5743bf21d60'
 
 describe('Zap (mainnet-fork)', function() {
     before('setup contracts', async function() {
@@ -22,7 +21,7 @@ describe('Zap (mainnet-fork)', function() {
             params: [{
                 forking: {
                     jsonRpcUrl: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY}`,
-                    blockNumber: 12512112
+                    blockNumber: 12643117
                 }
             }]
         })
@@ -35,28 +34,29 @@ describe('Zap (mainnet-fork)', function() {
             ethers.getContractAt('Core', config.core),
             ethers.getContractFactory('Zap')
         ]))
-        if (process.env.DRYRUN === 'true') {
-            zap = await ethers.getContractAt('Zap', config.zap)
-            await impersonateAccount(_deployer)
-            await zap.connect(ethers.provider.getSigner(_deployer)).transferOwnership(alice)
-        } else {
-            zap = await Zap.deploy()
-        }
-    })
-
-    it('admin whitelists', async function() {
-        await impersonateAccount(badgerMultiSig)
-        for (let i = 0; i < 3; i++) {
-            const pool = await badgerPeak.pools(i)
-            const sett = await ethers.getContractAt('ISett', pool.sett)
-            await sett.connect(ethers.provider.getSigner(badgerMultiSig)).approveContractAccess(zap.address)
-        }
 
         await impersonateAccount(ibbtcMetaSig)
         await web3.eth.sendTransaction({ from: alice, to: ibbtcMetaSig, value: _1e18 })
-        await badgerPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(zap.address)
-        await wbtcPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(zap.address)
-        await core.connect(ethers.provider.getSigner(ibbtcMetaSig)).setGuestList(NULL)
+
+        if (process.env.DRYRUN === 'true') {
+            zap = await ethers.getContractAt('Zap', config.zap)
+            await impersonateAccount(_deployer)
+            // await zap.connect(ethers.provider.getSigner(_deployer)).transferOwnership(alice)
+        } else {
+            zap = await Zap.deploy()
+
+            // admin whitelists
+            await impersonateAccount(badgerMultiSig)
+            for (let i = 0; i < 3; i++) {
+                const pool = await badgerPeak.pools(i)
+                const sett = await ethers.getContractAt('ISett', pool.sett)
+                await sett.connect(ethers.provider.getSigner(badgerMultiSig)).approveContractAccess(zap.address)
+            }
+
+            await badgerPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(zap.address)
+            await wbtcPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(zap.address)
+            await core.connect(ethers.provider.getSigner(ibbtcMetaSig)).setGuestList(NULL)
+        }
     })
 
     it('mint with renbtc', async function() {
@@ -95,7 +95,7 @@ describe('Zap (mainnet-fork)', function() {
 
     it('mint with wbtc', async function() {
         let amount = _1e8.mul(12)
-        const wbtc = await deployer.getWbtc(alice, amount)
+        const wbtc = await deployer.getWbtc(alice, amount, wBTCWhale)
         await wbtc.approve(zap.address, amount)
 
         amount = amount.div(4)
@@ -137,11 +137,15 @@ describe('Zap (mainnet-fork)', function() {
         const ZapCall = await ethers.getContractFactory('ZapCall')
         const zapCall = await ZapCall.deploy()
         let amount = _1e8.mul(5)
-        const wbtc = await deployer.getWbtc(zapCall.address, amount)
+        const wbtc = await deployer.getWbtc(zapCall.address, amount, wBTCWhale)
 
         await expect(zapCall.mint(wbtc.address, zap.address)).to.be.revertedWith('ACCESS_DENIED')
 
-        await zap.approveContractAccess(zapCall.address)
+        if (process.env.DRYRUN === 'true') {
+            await zap.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(zapCall.address)
+        } else {
+            await zap.approveContractAccess(zapCall.address)
+        }
 
         await zapCall.mint(wbtc.address, zap.address)
 
