@@ -20,4 +20,6 @@ contract byvWbtc is ERC20, IbyvWbtc {
     }
 
     function deposit(bytes32[] calldata merkleProof) override external {}
+
+    function withdraw() override external returns (uint) {}
 }

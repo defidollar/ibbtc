@@ -38,4 +38,7 @@ contract Sett is ERC20, ISett {
     function balance() override external view returns (uint256) {
         return token.balanceOf(address(this));
     }
+
+    function pricePerShare() override external view returns (uint256) {}
+    function withdrawalFee() override external view returns (uint256) {}
 }

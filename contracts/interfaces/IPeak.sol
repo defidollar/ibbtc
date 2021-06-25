@@ -15,6 +15,15 @@ interface IBadgerSettPeak is IPeak {
         external
         view
         returns(uint bBTC, uint fee);
+
+    function redeem(uint poolId, uint inAmount)
+        external
+        returns (uint outAmount);
+
+    function calcRedeem(uint poolId, uint bBtc)
+        external
+        view
+        returns(uint sett, uint fee, uint max);
 }
 
 interface IByvWbtcPeak is IPeak {
@@ -26,4 +35,13 @@ interface IByvWbtcPeak is IPeak {
         external
         view
         returns(uint bBTC, uint fee);
+
+    function redeem(uint inAmount)
+        external
+        returns (uint outAmount);
+
+    function calcRedeem(uint bBtc)
+        external
+        view
+        returns(uint sett, uint fee, uint max);
 }
