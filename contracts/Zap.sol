@@ -19,9 +19,9 @@ contract Zap is AccessControlDefended {
     IBadgerSettPeak public constant settPeak = IBadgerSettPeak(0x41671BA1abcbA387b9b2B752c205e22e916BE6e3);
     IByvWbtcPeak public constant byvWbtcPeak = IByvWbtcPeak(0x825218beD8BE0B30be39475755AceE0250C50627);
     IERC20 public constant ibbtc = IERC20(0xc4E15973E6fF2A35cC804c2CF9D2a1b817a8b40F);
-
     IERC20 public constant ren = IERC20(0xEB4C2781e4ebA804CE9a9803C67d0893436bB27D);
     IERC20 public constant wbtc = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+    IController public constant controller = IController(0x63cF44B2548e4493Fd099222A1eC79F3344D9682);
 
     struct Pool {
         IERC20 lpToken;
@@ -82,10 +82,9 @@ contract Zap is AccessControlDefended {
         blockLocked
         returns(uint _ibbtc)
     {
-        Pool memory pool = pools[poolId];
-
         token.safeTransferFrom(msg.sender, address(this), amount);
 
+        Pool memory pool = pools[poolId];
         if (poolId < 3) { // setts
             _addLiquidity(pool.deposit, amount, poolId + 2, idx); // pools are such that the #tokens they support is +2 from their poolId.
             pool.sett.deposit(pool.lpToken.balanceOf(address(this)));
@@ -246,10 +245,9 @@ contract Zap is AccessControlDefended {
         blockLocked
         returns(uint out)
     {
-        Pool memory pool = pools[poolId];
-
         ibbtc.safeTransferFrom(msg.sender, address(this), amount);
 
+        Pool memory pool = pools[poolId];
         if (poolId < 3) { // setts
             settPeak.redeem(poolId, amount);
             pool.sett.withdrawAll();
@@ -387,9 +385,8 @@ contract Zap is AccessControlDefended {
         } else {
             // pesimistically charge 0.5% on the withdrawal.
             // Actual fee might be lesser if the vault keeps keeps a buffer
-            uint strategyFee = sett.mul(50).div(1000);
-            lp = sett.mul(pool.sett.getPricePerFullShare()).div(1e18);
-            lp = lp.sub(strategyFee);
+            uint strategyFee = sett.mul(controller.strategies(pool.lpToken).withdrawalFee()).div(1000);
+            lp = sett.sub(strategyFee).mul(pool.sett.getPricePerFullShare()).div(1e18);
             fee = fee.add(strategyFee);
         }
     }
@@ -407,4 +404,12 @@ interface ICurveFi {
 
     function remove_liquidity_one_coin(uint _token_amount, int128 i, uint min_amount) external;
     function calc_withdraw_one_coin(uint _token_amount, int128 i) external view returns(uint);
+}
+
+interface IStrategy {
+    function withdrawalFee() external view returns(uint);
+}
+
+interface IController {
+    function strategies(IERC20 token) external view returns(IStrategy);
 }
