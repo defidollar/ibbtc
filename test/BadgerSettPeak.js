@@ -44,13 +44,19 @@ describe('BadgerSettPeak', function() {
         expect(await core.peaks(badgerPeak.address)).to.eq(2)
     })
 
+    it('cant mark peak with funds as extinct', async function() {
+        await expect(
+            core.setPeakStatus(badgerPeak.address, 0 /* Extinct */)
+        ).to.be.revertedWith('NON_TRIVIAL_FUNDS_IN_PEAK')
+    })
+
     // redeem works for dormant peak
     it('redeem', async function() {
         const [ aliceBbtc, accumulatedFee ] = await Promise.all([
             bBTC.balanceOf(alice),
             core.accumulatedFee()
         ])
-        const amount = aliceBbtc.mul(7).div(10) // not redeeming all
+        const amount = aliceBbtc //.mul(7).div(10) // not redeeming all
 
         await badgerPeak.redeem(0, amount)
 
@@ -60,13 +66,6 @@ describe('BadgerSettPeak', function() {
         expect(await core.accumulatedFee()).to.eq(_fee.add(accumulatedFee))
     })
 
-    it('redeem fails for Extinct peak', async function() {
-        await core.setPeakStatus(badgerPeak.address, 0 /* Extinct */)
-        expect(await core.peaks(badgerPeak.address)).to.eq(0)
-
-        await expect(badgerPeak.redeem(0, await bBTC.balanceOf(alice))).to.be.revertedWith('PEAK_EXTINCT')
-    })
-
     it('collectFee', async function() {
         const accumulatedFee = await core.accumulatedFee()
 
@@ -74,6 +73,15 @@ describe('BadgerSettPeak', function() {
 
         expect(await bBTC.balanceOf(feeSink)).to.eq(accumulatedFee);
         expect(await core.accumulatedFee()).to.eq(ZERO)
+
+        await badgerPeak.connect(ethers.provider.getSigner(feeSink)).redeem(0, accumulatedFee)
+    })
+
+    it('redeem fails for Extinct peak', async function() {
+        await core.setPeakStatus(badgerPeak.address, 0 /* Extinct */)
+        expect(await core.peaks(badgerPeak.address)).to.eq(0)
+
+        await expect(badgerPeak.redeem(0, _1e18 /* dummy value */)).to.be.revertedWith('PEAK_EXTINCT')
     })
 
     it('modifyWhitelistedCurvePools', async function() {

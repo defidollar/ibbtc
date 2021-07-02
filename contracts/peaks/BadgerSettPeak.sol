@@ -153,8 +153,8 @@ contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
     {
         return btc // is already scaled by 1e36
             .mul(1e18)
-            .div(pool.sett.getPricePerFullShare())
-            .div(pool.swap.get_virtual_price());
+            .div(pool.swap.get_virtual_price())
+            .div(pool.sett.getPricePerFullShare());
     }
 
     /**
