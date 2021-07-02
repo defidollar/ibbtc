@@ -56,7 +56,7 @@ describe('BadgerSettPeak', function() {
             bBTC.balanceOf(alice),
             core.accumulatedFee()
         ])
-        const amount = aliceBbtc //.mul(7).div(10) // not redeeming all
+        const amount = aliceBbtc
 
         await badgerPeak.redeem(0, amount)
 
