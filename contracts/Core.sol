@@ -37,6 +37,7 @@ contract Core is GovernableProxy, ICore {
 
     event PeakWhitelisted(address indexed peak);
     event FeeCollected(uint amount);
+    event PricePerShareSynced(uint indexed pps);
 
     /**
     * @param _bBTC bBTC token address
@@ -114,6 +115,17 @@ contract Core is GovernableProxy, ICore {
             return totalSystemAssets().mul(1e18).div(_totalSupply);
         }
         return 1e18;
+    }
+
+    function syncPricePerShare() public {
+        (address fxRoot, address fxChildTunnel) = getFxContracts();
+        uint pps = pricePerShare();
+        IFxStateSender(fxRoot).sendMessageToChild(fxChildTunnel, abi.encode(pps));
+        emit PricePerShareSynced(pps);
+    }
+
+    function getFxContracts() public view returns (address fxRoot, address fxChildTunnel) {
+        return (address(__gap[0]), address(__gap[1]));
     }
 
     /**
@@ -214,8 +226,21 @@ contract Core is GovernableProxy, ICore {
     function setGuestList(address _guestList) external onlyGovernance {
         guestList = BadgerGuestListAPI(_guestList);
     }
+
+    function setFxContracts(address _fxRoot, address _fxChildTunnel) external onlyGovernance {
+        require(_fxRoot != address(0) && _fxChildTunnel != address(0), "NULL_ADDRESS");
+        __gap[0] = uint(_fxRoot);
+        __gap[1] = uint(_fxChildTunnel);
+        // sanity check
+        (address fxRoot, address fxChildTunnel) = getFxContracts();
+        require(fxRoot == _fxRoot && fxChildTunnel == _fxChildTunnel, "INSANE");
+    }
 }
 
 interface BadgerGuestListAPI {
     function authorized(address guest, uint256 amount, bytes32[] calldata merkleProof) external view returns (bool);
+}
+
+interface IFxStateSender {
+    function sendMessageToChild(address _receiver, bytes calldata _data) external;
 }
