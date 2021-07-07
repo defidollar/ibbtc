@@ -126,8 +126,8 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IByvWbtcPeak {
         returns(uint)
     {
         return btc // this value is scaled by 1e36
-            .div(1e20)
-            .div(byvWBTC.pricePerShare());
+            .div(byvWBTC.pricePerShare())
+            .div(1e20);
     }
 
     /**
