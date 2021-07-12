@@ -12,4 +12,8 @@ interface ISett is IERC20 {
 
     function getPricePerFullShare() external view returns (uint256);
     function balance() external view returns (uint256);
+
+    // byvwbtc
+    function pricePerShare() external view returns (uint256);
+    function withdrawalFee() external view returns (uint256);
 }

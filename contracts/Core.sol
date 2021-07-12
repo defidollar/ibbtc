@@ -89,7 +89,7 @@ contract Core is GovernableProxy, ICore {
     * @notice Redeem bBTC
     * @dev Only whitelisted peaks can call this function
     * @param bBtc bBTC amount to redeem
-    * @return btc amount redeemed, scaled by 1e18
+    * @return btc amount redeemed, scaled by 1e36
     */
     function redeem(uint bBtc, address account) override external returns (uint) {
         require(bBtc > 0, "REDEEMING_0_bBTC");
@@ -155,6 +155,13 @@ contract Core is GovernableProxy, ICore {
             peaks[peak] == PeakState.Extinct,
             "DUPLICATE_PEAK"
         );
+
+        address[] memory _peakAddresses = peakAddresses;
+        uint numPeaks = _peakAddresses.length;
+        for (uint i = 0; i < numPeaks; i++) {
+            require(_peakAddresses[i] != peak, "USE_setPeakStatus");
+        }
+
         IPeak(peak).portfolioValue(); // sanity check
         peakAddresses.push(peak);
         peaks[peak] = PeakState.Active;
@@ -172,6 +179,9 @@ contract Core is GovernableProxy, ICore {
             peaks[peak] != PeakState.Extinct,
             "Peak is extinct"
         );
+        if (state == PeakState.Extinct) {
+            require(IPeak(peak).portfolioValue() <= 1e15, "NON_TRIVIAL_FUNDS_IN_PEAK");
+        }
         peaks[peak] = state;
     }
 

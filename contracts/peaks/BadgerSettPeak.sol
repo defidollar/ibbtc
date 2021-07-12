@@ -72,6 +72,7 @@ contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
     * @return outAmount Amount of Sett LP token
     */
     function redeem(uint poolId, uint inAmount)
+        override
         external
         defend
         blockLocked
@@ -103,6 +104,7 @@ contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
     * @return max Max amount of bBTC redeemable for chosen sett
     */
     function calcRedeem(uint poolId, uint bBtc)
+        override
         external
         view
         returns(uint sett, uint fee, uint max)
@@ -151,8 +153,8 @@ contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
     {
         return btc // is already scaled by 1e36
             .mul(1e18)
-            .div(pool.sett.getPricePerFullShare())
-            .div(pool.swap.get_virtual_price());
+            .div(pool.swap.get_virtual_price())
+            .div(pool.sett.getPricePerFullShare());
     }
 
     /**

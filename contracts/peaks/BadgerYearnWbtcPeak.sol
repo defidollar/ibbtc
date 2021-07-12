@@ -62,6 +62,7 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IByvWbtcPeak {
     * @return outAmount Amount of byvWBTC token
     */
     function redeem(uint inAmount)
+        override
         external
         defend
         blockLocked
@@ -91,6 +92,7 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IByvWbtcPeak {
     * @return max Max amount of bBTC redeemable for byvWBTC
     */
     function calcRedeem(uint bBtc)
+        override
         external
         view
         returns(uint sett, uint fee, uint max)
@@ -124,8 +126,8 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IByvWbtcPeak {
         returns(uint)
     {
         return btc // this value is scaled by 1e36
-            .div(1e20)
-            .div(byvWBTC.pricePerShare());
+            .div(byvWBTC.pricePerShare())
+            .div(1e20);
     }
 
     /**

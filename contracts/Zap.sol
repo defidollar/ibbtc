@@ -18,10 +18,10 @@ contract Zap is AccessControlDefended {
 
     IBadgerSettPeak public constant settPeak = IBadgerSettPeak(0x41671BA1abcbA387b9b2B752c205e22e916BE6e3);
     IByvWbtcPeak public constant byvWbtcPeak = IByvWbtcPeak(0x825218beD8BE0B30be39475755AceE0250C50627);
-    IbBTC public constant ibbtc = IbBTC(0xc4E15973E6fF2A35cC804c2CF9D2a1b817a8b40F);
-
+    IERC20 public constant ibbtc = IERC20(0xc4E15973E6fF2A35cC804c2CF9D2a1b817a8b40F);
     IERC20 public constant ren = IERC20(0xEB4C2781e4ebA804CE9a9803C67d0893436bB27D);
     IERC20 public constant wbtc = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+    IController public constant controller = IController(0x63cF44B2548e4493Fd099222A1eC79F3344D9682);
 
     struct Pool {
         IERC20 lpToken;
@@ -64,6 +64,7 @@ contract Zap is AccessControlDefended {
                 IERC20(address(pool.sett)).safeApprove(address(byvWbtcPeak), uint(-1));
             }
         }
+        pools[2].lpToken.safeApprove(address(pools[2].deposit), uint(-1));
     }
 
     /**
@@ -81,10 +82,9 @@ contract Zap is AccessControlDefended {
         blockLocked
         returns(uint _ibbtc)
     {
-        Pool memory pool = pools[poolId];
-
         token.safeTransferFrom(msg.sender, address(this), amount);
 
+        Pool memory pool = pools[poolId];
         if (poolId < 3) { // setts
             _addLiquidity(pool.deposit, amount, poolId + 2, idx); // pools are such that the #tokens they support is +2 from their poolId.
             pool.sett.deposit(pool.lpToken.balanceOf(address(this)));
@@ -97,7 +97,7 @@ contract Zap is AccessControlDefended {
         }
 
         require(_ibbtc >= minOut, "INSUFFICIENT_IBBTC"); // used for capping slippage in curve pools
-        IERC20(address(ibbtc)).safeTransfer(msg.sender, _ibbtc);
+        ibbtc.safeTransfer(msg.sender, _ibbtc);
     }
 
     /**
@@ -130,8 +130,8 @@ contract Zap is AccessControlDefended {
     /**
     * @notice Calculate the most optimal route and expected ibbtc amount when minting with wBTC / renBtc.
     * @dev Use returned params poolId, idx and bBTC in the call to mint(...)
-           The last param `minOut` in mint(...) should be a bit more than the returned bBTC value.
-           For instance 0.2% - 1% higher depending on slippage tolerange.
+           The last param `minOut` in mint(...) should be a bit less than the returned bBTC value.
+           For instance 0.2% - 1% lesser depending on slippage tolerange.
     * @param amount renBTC amount
     * @return poolId 0=crvRenWBTC, 1=crvRenWSBTC, 2=tbtc-sbtcCrv, 3=byvwbtc
     * @return idx Index of the supported token in the curve pool (poolId). Should be ignored for poolId=3
@@ -236,6 +236,160 @@ contract Zap is AccessControlDefended {
         uint _sett = _lp.mul(1e18).div(pool.sett.getPricePerFullShare());
         return settPeak.calcMint(poolId, _sett);
     }
+
+    // Redeem Methods
+
+    function redeem(IERC20 token, uint amount, uint poolId, int128 idx, uint minOut)
+        external
+        defend
+        blockLocked
+        returns(uint out)
+    {
+        ibbtc.safeTransferFrom(msg.sender, address(this), amount);
+
+        Pool memory pool = pools[poolId];
+        if (poolId < 3) { // setts
+            settPeak.redeem(poolId, amount);
+            pool.sett.withdrawAll();
+            pool.deposit.remove_liquidity_one_coin(pool.lpToken.balanceOf(address(this)), idx, minOut);
+        } else if (poolId == 3) { // byvwbtc
+            byvWbtcPeak.redeem(amount);
+            IbyvWbtc(address(pool.sett)).withdraw(); // withdraws all available
+        } else {
+            revert("INVALID_POOL_ID");
+        }
+        out = token.balanceOf(address(this));
+        token.safeTransfer(msg.sender, out);
+    }
+
+    /**
+    * @notice Calculate the most optimal route and expected token amount when redeeming ibbtc.
+    * @dev Use returned params poolId, idx and out in the call to redeem(...)
+           The last param `redeem` in mint(...) should be a bit less than the returned `out` value.
+           For instance 0.2% - 1% lesser depending on slippage tolerange.
+    * @param amount ibbtc amount
+    * @return poolId 0=crvRenWBTC, 1=crvRenWSBTC, 2=tbtc-sbtcCrv, 3=byvwbtc
+    * @return idx Index of the supported token in the curve pool (poolId). Should be ignored for poolId=3
+    * @return out Expected amount for token. Not for precise calculations. Doesn't factor in (deposit) fee charged by the curve pool / byvwbtc.
+    * @return fee Fee being charged by ibbtc + setts. Denominated in corresponding sett token
+    */
+    function calcRedeem(address token, uint amount) external view returns(uint poolId, uint idx, uint out, uint fee) {
+        if (token == address(ren)) {
+            return calcRedeemInRen(amount);
+        }
+        if (token == address(wbtc)) {
+            return calcRedeemInWbtc(amount);
+        }
+        revert("INVALID_TOKEN");
+    }
+
+    /**
+    * @notice Calculate the most optimal route and expected renbtc amount when redeeming ibbtc.
+    * @dev Use returned params poolId, idx and renAmount in the call to redeem(...)
+           The last param `minOut` in redeem(...) should be a bit less than the returned renAmount value.
+           For instance 0.2% - 1% lesser depending on slippage tolerange.
+    * @param amount ibbtc amount
+    * @return poolId 0=crvRenWBTC, 1=crvRenWSBTC, 2=tbtc-sbtcCrv
+    * @return idx Index of the supported token in the curve pool (poolId)
+    * @return renAmount Expected renBtc. Not for precise calculations. Doesn't factor in fee charged by the curve pool
+    * @return fee Fee being charged by ibbtc system. Denominated in corresponding sett token
+    */
+    function calcRedeemInRen(uint amount) public view returns(uint poolId, uint idx, uint renAmount, uint fee) {
+        uint _lp;
+        uint _fee;
+        uint _ren;
+
+        // poolId=0, idx=0
+        (_lp, fee) = ibbtcToCurveLP(0, amount);
+        renAmount = pools[0].deposit.calc_withdraw_one_coin(_lp, 0);
+
+        (_lp, _fee) = ibbtcToCurveLP(1, amount);
+        _ren = pools[1].deposit.calc_withdraw_one_coin(_lp, 0);
+        if (_ren > renAmount) {
+            renAmount = _ren;
+            fee = _fee;
+            poolId = 1;
+            // idx=0
+        }
+
+        (_lp, _fee) = ibbtcToCurveLP(2, amount);
+        _ren = pools[2].deposit.calc_withdraw_one_coin(_lp, 1);
+        if (_ren > renAmount) {
+            renAmount = _ren;
+            fee = _fee;
+            poolId = 2;
+            idx = 1;
+        }
+    }
+
+    /**
+    * @notice Calculate the most optimal route and expected wbtc amount when redeeming ibbtc.
+    * @dev Use returned params poolId, idx and wbtc in the call to redeem(...)
+           The last param `minOut` in redeem(...) should be a bit less than the returned wbtc value.
+           For instance 0.2% - 1% lesser depending on slippage tolerange.
+    * @param amount ibbtc amount
+    * @return poolId 0=crvRenWBTC, 1=crvRenWSBTC, 2=tbtc-sbtcCrv, 3=byvwbtc
+    * @return idx Index of the supported token in the curve pool (poolId)
+    * @return wBTCAmount Expected wbtc. Not for precise calculations. Doesn't factor in fee charged by the curve pool
+    * @return fee Fee being charged by ibbtc system. Denominated in corresponding sett token
+    */
+    function calcRedeemInWbtc(uint amount) public view returns(uint poolId, uint idx, uint wBTCAmount, uint fee) {
+        uint _lp;
+        uint _fee;
+        uint _wbtc;
+
+        // poolId=0, idx=0
+        (_lp, fee) = ibbtcToCurveLP(0, amount);
+        wBTCAmount = pools[0].deposit.calc_withdraw_one_coin(_lp, 1);
+        idx = 1;
+
+        (_lp, _fee) = ibbtcToCurveLP(1, amount);
+        _wbtc = pools[1].deposit.calc_withdraw_one_coin(_lp, 1);
+        if (_wbtc > wBTCAmount) {
+            wBTCAmount = _wbtc;
+            fee = _fee;
+            poolId = 1;
+            // idx=1
+        }
+
+        (_lp, _fee) = ibbtcToCurveLP(2, amount);
+        _wbtc = pools[2].deposit.calc_withdraw_one_coin(_lp, 2);
+        if (_wbtc > wBTCAmount) {
+            wBTCAmount = _wbtc;
+            fee = _fee;
+            poolId = 2;
+            idx = 2;
+        }
+
+        uint _byvWbtc;
+        uint _max;
+        (_byvWbtc,_fee,_max) = byvWbtcPeak.calcRedeem(amount);
+        if (amount <= _max) {
+            uint strategyFee = _byvWbtc.mul(pools[3].sett.withdrawalFee()).div(10000);
+            _wbtc = _byvWbtc.sub(strategyFee).mul(pools[3].sett.pricePerShare()).div(1e8);
+            if (_wbtc > wBTCAmount) {
+                wBTCAmount = _wbtc;
+                fee = _fee.add(strategyFee);
+                poolId = 3;
+            }
+        }
+    }
+
+    function ibbtcToCurveLP(uint poolId, uint bBtc) public view returns(uint lp, uint fee) {
+        uint sett;
+        uint max;
+        (sett,fee,max) = settPeak.calcRedeem(poolId, bBtc);
+        Pool memory pool = pools[poolId];
+        if (bBtc > max) {
+            return (0,fee);
+        } else {
+            // pesimistically charge 0.5% on the withdrawal.
+            // Actual fee might be lesser if the vault keeps keeps a buffer
+            uint strategyFee = sett.mul(controller.strategies(pool.lpToken).withdrawalFee()).div(1000);
+            lp = sett.sub(strategyFee).mul(pool.sett.getPricePerFullShare()).div(1e18);
+            fee = fee.add(strategyFee);
+        }
+    }
 }
 
 interface ICurveFi {
@@ -247,8 +401,15 @@ interface ICurveFi {
 
     function add_liquidity(uint[4] calldata amounts, uint min_mint_amount) external;
     function calc_token_amount(uint[4] calldata amounts, bool isDeposit) external view returns(uint);
+
+    function remove_liquidity_one_coin(uint _token_amount, int128 i, uint min_amount) external;
+    function calc_withdraw_one_coin(uint _token_amount, int128 i) external view returns(uint);
 }
 
-interface IyvWbtc {
-    function deposit(uint) external;
+interface IStrategy {
+    function withdrawalFee() external view returns(uint);
+}
+
+interface IController {
+    function strategies(IERC20 token) external view returns(IStrategy);
 }

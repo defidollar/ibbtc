@@ -3,7 +3,7 @@ const { expect } = require("chai");
 
 const deployer = require('../deployer')
 const {
-    constants: { _1e8, _1e18, NULL },
+    constants: { _1e8, _1e18, NULL, ZERO },
     impersonateAccount
 } = require('../utils');
 const badgerMultiSig = '0xB65cef03b9B89f99517643226d76e286ee999e77'
@@ -61,7 +61,7 @@ describe('Zap (mainnet-fork)', function() {
 
     it('mint with renbtc', async function() {
         let amount = _1e8.mul(9)
-        const ren = await deployer.getRenbtc(alice, amount)
+        ren = await deployer.getRenbtc(alice, amount)
         await ren.approve(zap.address, amount)
 
         amount = amount.div(3)
@@ -95,7 +95,7 @@ describe('Zap (mainnet-fork)', function() {
 
     it('mint with wbtc', async function() {
         let amount = _1e8.mul(12)
-        const wbtc = await deployer.getWbtc(alice, amount, wBTCWhale)
+        wbtc = await deployer.getWbtc(alice, amount, wBTCWhale)
         await wbtc.approve(zap.address, amount)
 
         amount = amount.div(4)
@@ -132,6 +132,147 @@ describe('Zap (mainnet-fork)', function() {
         const ibbtc = parseFloat((await bBTC.balanceOf(alice)).toString()) / 1e18
         expect(ibbtc > 17.8).to.be.true
     })
+
+    it('zap.calcRedeem', async function() {
+        amount = await bBTC.balanceOf(alice)
+
+        let redeem = await zap.calcRedeem(ren.address, amount)
+        console.log({ redeem })
+        redeem = await zap.calcRedeem(wbtc.address, amount)
+        console.log({ redeem })
+
+        expect(await ren.balanceOf(alice)).to.eq(ZERO)
+        expect(await wbtc.balanceOf(alice)).to.eq(ZERO)
+
+        await bBTC.approve(zap.address, amount);
+        amount = amount.div(7)
+    })
+
+    it('redeem from crvRenWBTC', async function() {
+        const bcrvRenWBTC = await ethers.getContractAt('IERC20', deployer.crvPools.ren.sett)
+        let _then = await Promise.all([
+            bBTC.balanceOf(alice),
+            ren.balanceOf(alice),
+            bcrvRenWBTC.balanceOf(badgerPeak.address)
+        ])
+
+        await zap.redeem(ren.address, amount, 0, 0, 0);
+
+        let _now = await Promise.all([
+            bBTC.balanceOf(alice),
+            ren.balanceOf(alice),
+            bcrvRenWBTC.balanceOf(badgerPeak.address)
+        ])
+        assertions(_then, _now, amount)
+
+        // wbtc
+        _then = await Promise.all([
+            bBTC.balanceOf(alice),
+            wbtc.balanceOf(alice),
+            bcrvRenWBTC.balanceOf(badgerPeak.address)
+        ])
+
+        await zap.redeem(wbtc.address, amount, 0, 1, 0);
+
+        _now = await Promise.all([
+            bBTC.balanceOf(alice),
+            wbtc.balanceOf(alice),
+            bcrvRenWBTC.balanceOf(badgerPeak.address)
+        ])
+        assertions(_then, _now, amount)
+    })
+
+    it('redeem from bcrvRenWSBTC', async function() {
+        const bcrvRenWSBTC = await ethers.getContractAt('IERC20', deployer.crvPools.sbtc.sett)
+        let _then = await Promise.all([
+            bBTC.balanceOf(alice),
+            ren.balanceOf(alice),
+            bcrvRenWSBTC.balanceOf(badgerPeak.address)
+        ])
+
+        await zap.redeem(ren.address, amount, 1, 0, 0);
+
+        let _now = await Promise.all([
+            bBTC.balanceOf(alice),
+            ren.balanceOf(alice),
+            bcrvRenWSBTC.balanceOf(badgerPeak.address)
+        ])
+        assertions(_then, _now, amount)
+
+        // wbtc
+        _then = await Promise.all([
+            bBTC.balanceOf(alice),
+            wbtc.balanceOf(alice),
+            bcrvRenWSBTC.balanceOf(badgerPeak.address)
+        ])
+
+        await zap.redeem(wbtc.address, amount, 1, 1, 0);
+
+        _now = await Promise.all([
+            bBTC.balanceOf(alice),
+            wbtc.balanceOf(alice),
+            bcrvRenWSBTC.balanceOf(badgerPeak.address)
+        ])
+        assertions(_then, _now, amount)
+    })
+
+    it('redeem from btbtc_sbtcCrv', async function() {
+        const btbtc_sbtcCrv = await ethers.getContractAt('IERC20', deployer.crvPools.tbtc.sett)
+        let _then = await Promise.all([
+            bBTC.balanceOf(alice),
+            ren.balanceOf(alice),
+            btbtc_sbtcCrv.balanceOf(badgerPeak.address)
+        ])
+
+        await zap.redeem(ren.address, amount, 2, 1, 0);
+
+        let _now = await Promise.all([
+            bBTC.balanceOf(alice),
+            ren.balanceOf(alice),
+            btbtc_sbtcCrv.balanceOf(badgerPeak.address)
+        ])
+        assertions(_then, _now, amount)
+
+        // wbtc
+        _then = await Promise.all([
+            bBTC.balanceOf(alice),
+            wbtc.balanceOf(alice),
+            btbtc_sbtcCrv.balanceOf(badgerPeak.address)
+        ])
+
+        await zap.redeem(wbtc.address, amount, 2, 2, 0);
+
+        _now = await Promise.all([
+            bBTC.balanceOf(alice),
+            wbtc.balanceOf(alice),
+            btbtc_sbtcCrv.balanceOf(badgerPeak.address)
+        ])
+        assertions(_then, _now, amount)
+    })
+
+    it('redeem from byvwbtc', async function() {
+        const byvWbtc = await ethers.getContractAt('IERC20', '0x4b92d19c11435614CD49Af1b589001b7c08cD4D5')
+        let _then = await Promise.all([
+            bBTC.balanceOf(alice),
+            wbtc.balanceOf(alice),
+            byvWbtc.balanceOf(wbtcPeak.address)
+        ])
+
+        await zap.redeem(wbtc.address, amount, 3, -1 /* redundant */, 0);
+
+        let _now = await Promise.all([
+            bBTC.balanceOf(alice),
+            wbtc.balanceOf(alice),
+            byvWbtc.balanceOf(wbtcPeak.address)
+        ])
+        assertions(_then, _now, amount)
+    })
+
+    function assertions(_then, _now, amount) {
+        expect(_now[0]).to.eq(_then[0].sub(amount))
+        expect(_now[1].gt(_then[1])).to.be.true
+        expect(_now[2].lt(_then[2])).to.be.true
+    }
 
     it('approveContractAccess', async function() {
         const ZapCall = await ethers.getContractFactory('ZapCall')
