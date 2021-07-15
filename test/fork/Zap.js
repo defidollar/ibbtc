@@ -1,4 +1,3 @@
-const _ = require('lodash');
 const { expect } = require("chai");
 
 const deployer = require('../deployer')
@@ -43,7 +42,17 @@ describe('Zap (mainnet-fork)', function() {
             await impersonateAccount(_deployer)
             // await zap.connect(ethers.provider.getSigner(_deployer)).transferOwnership(alice)
         } else {
-            zap = await Zap.deploy()
+            const [ TransparentUpgradeableProxy, ProxyAdmin ] = await Promise.all([
+                ethers.getContractFactory('TransparentUpgradeableProxy'),
+                ethers.getContractFactory('ProxyAdmin')
+            ])
+            const [ zapImpl, proxyAdmin ] = await Promise.all([ Zap.deploy(), ProxyAdmin.deploy() ])
+            zap = await TransparentUpgradeableProxy.deploy(
+                zapImpl.address,
+                proxyAdmin.address,
+                zapImpl.interface.encodeFunctionData('init', [ alice /* governance */ ])
+            )
+            zap = await ethers.getContractAt('Zap', zap.address)
 
             // admin whitelists
             await impersonateAccount(badgerMultiSig)

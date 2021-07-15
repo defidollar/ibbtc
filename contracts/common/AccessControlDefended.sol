@@ -4,10 +4,9 @@ pragma solidity 0.6.11;
 
 import {GovernableProxy} from "./proxy/GovernableProxy.sol";
 
-contract AccessControlDefended is GovernableProxy {
+contract AccessControlDefendedBase {
     mapping (address => bool) public approved;
     mapping(address => uint256) public blockLock;
-    uint256[50] private __gap;
 
     modifier defend() {
         require(msg.sender == tx.origin || approved[msg.sender], "ACCESS_DENIED");
@@ -23,11 +22,23 @@ contract AccessControlDefended is GovernableProxy {
         blockLock[account] = block.number;
     }
 
-    function approveContractAccess(address account) external onlyGovernance {
+    function _approveContractAccess(address account) internal {
         approved[account] = true;
     }
 
-    function revokeContractAccess(address account) external onlyGovernance {
+    function _revokeContractAccess(address account) internal {
         approved[account] = false;
+    }
+}
+
+contract AccessControlDefended is GovernableProxy, AccessControlDefendedBase {
+    uint256[50] private __gap;
+
+    function approveContractAccess(address account) external onlyGovernance {
+        _approveContractAccess(account);
+    }
+
+    function revokeContractAccess(address account) external onlyGovernance {
+        _revokeContractAccess(account);
     }
 }

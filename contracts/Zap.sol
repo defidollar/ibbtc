@@ -2,17 +2,23 @@
 
 pragma solidity 0.6.11;
 
+// unused imports; required for a forced contract compilation
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/TransparentUpgradeableProxy.sol";
+import {ProxyAdmin} from "@openzeppelin/contracts/proxy/ProxyAdmin.sol";
+
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20, SafeMath} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/Initializable.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-import {AccessControlDefended} from "./common/AccessControlDefended.sol";
+import {AccessControlDefendedBase} from "./common/AccessControlDefended.sol";
 
 import {ISett} from "./interfaces/ISett.sol";
 import {IBadgerSettPeak, IByvWbtcPeak} from "./interfaces/IPeak.sol";
 import {IbBTC} from "./interfaces/IbBTC.sol";
 import {IbyvWbtc} from "./interfaces/IbyvWbtc.sol";
 
-contract Zap is AccessControlDefended {
+contract Zap is Initializable, Pausable, AccessControlDefendedBase {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
 
@@ -30,7 +36,15 @@ contract Zap is AccessControlDefended {
     }
     Pool[4] public pools;
 
-    constructor() public {
+    address public governance;
+
+    modifier onlyGovernance() {
+        require(governance == msg.sender, "NOT_OWNER");
+        _;
+    }
+
+    function init(address _governance) initializer external {
+        _setGovernance(_governance);
         pools[0] = Pool({ // crvRenWBTC [ ren, wbtc ]
             lpToken: IERC20(0x49849C98ae39Fff122806C06791Fa73784FB3675),
             deposit: ICurveFi(0x93054188d876f558f4a66B2EF1d97d16eDf0895B),
@@ -80,6 +94,7 @@ contract Zap is AccessControlDefended {
         external
         defend
         blockLocked
+        whenNotPaused
         returns(uint _ibbtc)
     {
         token.safeTransferFrom(msg.sender, address(this), amount);
@@ -243,6 +258,7 @@ contract Zap is AccessControlDefended {
         external
         defend
         blockLocked
+        whenNotPaused
         returns(uint out)
     {
         ibbtc.safeTransferFrom(msg.sender, address(this), amount);
@@ -389,6 +405,33 @@ contract Zap is AccessControlDefended {
             lp = sett.sub(strategyFee).mul(pool.sett.getPricePerFullShare()).div(1e18);
             fee = fee.add(strategyFee);
         }
+    }
+
+    // Governance controls
+
+    function setGovernance(address _governance) external onlyGovernance {
+        _setGovernance(_governance);
+    }
+
+    function _setGovernance(address _governance) internal {
+        require(_governance != address(0), "NULL_ADDRESS");
+        governance = _governance;
+    }
+
+    function approveContractAccess(address account) external onlyGovernance {
+        _approveContractAccess(account);
+    }
+
+    function revokeContractAccess(address account) external onlyGovernance {
+        _revokeContractAccess(account);
+    }
+
+    function pause() external onlyGovernance {
+        _pause();
+    }
+
+    function unpause() external onlyGovernance {
+        _unpause();
     }
 }
 
