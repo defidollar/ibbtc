@@ -134,10 +134,10 @@ async function getWbtc(account, amount, whale = wBTCWhale) {
     return _wBTC
 }
 
-async function getRenbtc(account, amount) {
-    await impersonateAccount(renBTCWhale)
+async function getRenbtc(account, amount, whale = renBTCWhale) {
+    await impersonateAccount(whale)
     const _ren = await ethers.getContractAt('IERC20', renBTC)
-    await _ren.connect(ethers.provider.getSigner(renBTCWhale)).transfer(account, amount)
+    await _ren.connect(ethers.provider.getSigner(whale)).transfer(account, amount)
     return _ren
 }
 

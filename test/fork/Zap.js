@@ -7,8 +7,8 @@ const {
 } = require('../utils');
 const badgerMultiSig = '0xB65cef03b9B89f99517643226d76e286ee999e77'
 const ibbtcMetaSig = '0xCF7346A5E41b0821b80D5B3fdc385EEB6Dc59F44'
-const _deployer = '0x08f7506e0381f387e901c9d0552cf4052a0740a4'
 const wBTCWhale = '0x28c6c06298d514db089934071355e5743bf21d60'
+const renBTCWhale = '0x4F868C1aa37fCf307ab38D215382e88FCA6275E2' // has 1k+ renbtc at block=12830307
 
 describe('Zap (mainnet-fork)', function() {
     before('setup contracts', async function() {
@@ -20,7 +20,7 @@ describe('Zap (mainnet-fork)', function() {
             params: [{
                 forking: {
                     jsonRpcUrl: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY}`,
-                    blockNumber: 12643117
+                    blockNumber: 12830307
                 }
             }]
         })
@@ -39,8 +39,6 @@ describe('Zap (mainnet-fork)', function() {
 
         if (process.env.DRYRUN === 'true') {
             zap = await ethers.getContractAt('Zap', config.zap)
-            await impersonateAccount(_deployer)
-            // await zap.connect(ethers.provider.getSigner(_deployer)).transferOwnership(alice)
         } else {
             const [ TransparentUpgradeableProxy, ProxyAdmin ] = await Promise.all([
                 ethers.getContractFactory('TransparentUpgradeableProxy'),
@@ -53,24 +51,23 @@ describe('Zap (mainnet-fork)', function() {
                 zapImpl.interface.encodeFunctionData('init', [ alice /* governance */ ])
             )
             zap = await ethers.getContractAt('Zap', zap.address)
-
-            // admin whitelists
-            await impersonateAccount(badgerMultiSig)
-            for (let i = 0; i < 3; i++) {
-                const pool = await badgerPeak.pools(i)
-                const sett = await ethers.getContractAt('ISett', pool.sett)
-                await sett.connect(ethers.provider.getSigner(badgerMultiSig)).approveContractAccess(zap.address)
-            }
-
-            await badgerPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(zap.address)
-            await wbtcPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(zap.address)
-            await core.connect(ethers.provider.getSigner(ibbtcMetaSig)).setGuestList(NULL)
         }
+
+        // admin whitelists
+        await impersonateAccount(badgerMultiSig)
+        for (let i = 0; i < 3; i++) {
+            const pool = await badgerPeak.pools(i)
+            const sett = await ethers.getContractAt('ISett', pool.sett)
+            await sett.connect(ethers.provider.getSigner(badgerMultiSig)).approveContractAccess(zap.address)
+        }
+
+        await badgerPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(zap.address)
+        await wbtcPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(zap.address)
     })
 
     it('mint with renbtc', async function() {
         let amount = _1e8.mul(9)
-        ren = await deployer.getRenbtc(alice, amount)
+        ren = await deployer.getRenbtc(alice, amount, renBTCWhale)
         await ren.approve(zap.address, amount)
 
         amount = amount.div(3)
