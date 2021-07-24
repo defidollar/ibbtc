@@ -2,13 +2,13 @@ const { expect } = require("chai");
 
 const deployer = require('../deployer')
 const {
-    constants: { _1e8, _1e18, NULL, ZERO },
+    constants: { _1e8, _1e18, ZERO },
     impersonateAccount
 } = require('../utils');
 const badgerMultiSig = '0xB65cef03b9B89f99517643226d76e286ee999e77'
 const ibbtcMetaSig = '0xCF7346A5E41b0821b80D5B3fdc385EEB6Dc59F44'
-const wBTCWhale = '0x28c6c06298d514db089934071355e5743bf21d60'
-const renBTCWhale = '0x4F868C1aa37fCf307ab38D215382e88FCA6275E2' // has 1k+ renbtc at block=12830307
+const wBTCWhale = '0x28c6c06298d514db089934071355e5743bf21d60' // has 2k+ wbtc at block=12887317
+const renBTCWhale = '0x4F868C1aa37fCf307ab38D215382e88FCA6275E2' // has 1k+ renbtc at block=12887317
 
 describe('Zap (mainnet-fork)', function() {
     before('setup contracts', async function() {
@@ -20,7 +20,7 @@ describe('Zap (mainnet-fork)', function() {
             params: [{
                 forking: {
                     jsonRpcUrl: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY}`,
-                    blockNumber: 12830307
+                    blockNumber: 12887417
                 }
             }]
         })
@@ -51,18 +51,18 @@ describe('Zap (mainnet-fork)', function() {
                 zapImpl.interface.encodeFunctionData('init', [ alice /* governance */ ])
             )
             zap = await ethers.getContractAt('Zap', zap.address)
-        }
 
-        // admin whitelists
-        await impersonateAccount(badgerMultiSig)
-        for (let i = 0; i < 3; i++) {
-            const pool = await badgerPeak.pools(i)
-            const sett = await ethers.getContractAt('ISett', pool.sett)
-            await sett.connect(ethers.provider.getSigner(badgerMultiSig)).approveContractAccess(zap.address)
-        }
+            // admin whitelists
+            await impersonateAccount(badgerMultiSig)
+            for (let i = 0; i < 3; i++) {
+                const pool = await badgerPeak.pools(i)
+                const sett = await ethers.getContractAt('ISett', pool.sett)
+                await sett.connect(ethers.provider.getSigner(badgerMultiSig)).approveContractAccess(zap.address)
+            }
 
-        await badgerPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(zap.address)
-        await wbtcPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(zap.address)
+            await badgerPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(zap.address)
+            await wbtcPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(zap.address)
+        }
     })
 
     it('mint with renbtc', async function() {
