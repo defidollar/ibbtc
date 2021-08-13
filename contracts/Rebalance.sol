@@ -28,7 +28,7 @@ contract Rebalance {
         // Desired: bcrvRenWBTC = 400, bcrvRenWSBTC = 200, btbtc/sbtcCrv = 0, byvWBTC = 67
         // Current: bcrvRenWBTC = 31.7, bcrvRenWSBTC = 0.7, btbtc/sbtcCrv = 9.95, byvWBTC = 624
 
-        _mint(0, 100e18); // mint ibbtc with 100 crvRenWBTC
+        _mint(0, 88e18); // mint ibbtc with 100 crvRenWBTC
         _mint(1, 50e18);  // mint ibbtc with 50 crvRenWSBTC
 
         // composition: bcrvRenWBTC = 131.7, bcrvRenWSBTC = 50.7, btbtc/sbtcCrv = 9.95, byvWBTC = 624
@@ -68,6 +68,7 @@ contract Rebalance {
     function _mint(uint poolId, uint amount) internal {
         Zap.Pool memory pool = zap.pools(poolId);
         pool.lpToken.safeTransferFrom(multiSig, address(this), amount);
+        pool.lpToken.safeApprove(address(pool.sett), amount);
         pool.sett.deposit(amount);
 
         amount = pool.sett.balanceOf(address(this));
