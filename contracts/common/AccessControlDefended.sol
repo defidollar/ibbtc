@@ -14,7 +14,7 @@ contract AccessControlDefendedBase {
     }
 
     modifier blockLocked() {
-        require(blockLock[msg.sender] < block.number, "BLOCK_LOCKED");
+        require(approved[msg.sender] || blockLock[msg.sender] < block.number, "BLOCK_LOCKED");
         _;
     }
 

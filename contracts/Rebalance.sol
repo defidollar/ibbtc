@@ -11,6 +11,8 @@ import {IBadgerSettPeak, IByvWbtcPeak} from "./interfaces/IPeak.sol";
 
 import {ICurveFi, Zap} from "./Zap.sol";
 
+import "hardhat/console.sol";
+
 contract Rebalance {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
@@ -24,12 +26,38 @@ contract Rebalance {
 
     address multiSig = 0xB65cef03b9B89f99517643226d76e286ee999e77;
 
+    function cycleWithSett(uint poolId, uint amount) external {
+        Zap.Pool memory pool = zap.pools(poolId);
+        pool.lpToken.safeTransferFrom(multiSig, address(this), amount);
+        pool.lpToken.safeApprove(address(pool.sett), amount);
+        pool.sett.deposit(amount);
+
+        amount = pool.sett.balanceOf(address(this));
+        IERC20(address(pool.sett)).safeApprove(address(settPeak), amount);
+        uint _ibbtc = settPeak.mint(poolId, amount, new bytes32[](0));
+        _redeem(_ibbtc, msg.sender);
+    }
+
+    function cycleWithWbtc(uint poolId, uint idx, uint amount) external {
+        wbtc.safeTransferFrom(msg.sender, address(this), amount);
+        wbtc.approve(address(zap), amount);
+        uint _ibbtc = zap.mint(wbtc, amount, poolId, idx, 0);
+        _redeem(_ibbtc, msg.sender);
+    }
+
+    function _redeem(uint _ibbtc, address user) internal {
+        ibbtc.safeApprove(address(zap), _ibbtc);
+        uint _wbtc = zap.redeem(wbtc, _ibbtc, 3, 0, 0); // redeem from byvwbtc
+        // console.log('_wbtc', _wbtc);
+        wbtc.safeTransfer(user, _wbtc);
+    }
+
     function execute() external {
         // Desired: bcrvRenWBTC = 400, bcrvRenWSBTC = 200, btbtc/sbtcCrv = 0, byvWBTC = 67
         // Current: bcrvRenWBTC = 31.7, bcrvRenWSBTC = 0.7, btbtc/sbtcCrv = 9.95, byvWBTC = 624
 
-        _mint(0, 88e18); // mint ibbtc with 100 crvRenWBTC
-        _mint(1, 50e18);  // mint ibbtc with 50 crvRenWSBTC
+        // _mint(0, 88e18); // mint ibbtc with 100 crvRenWBTC
+        // _mint(1, 50e18);  // mint ibbtc with 50 crvRenWSBTC
 
         // composition: bcrvRenWBTC = 131.7, bcrvRenWSBTC = 50.7, btbtc/sbtcCrv = 9.95, byvWBTC = 624
         // redeem ibbtc in wbtc
@@ -62,18 +90,7 @@ contract Rebalance {
         zap.redeem(wbtc, _ibbtc, 3, 0, 0); // redeem from byvwbtc
         // bcrvRenWBTC = 400, bcrvRenWSBTC = 200, btbtc/sbtcCrv = ~0, byvWBTC = 64
 
-        // transfer wbtc to msig
-    }
-
-    function _mint(uint poolId, uint amount) internal {
-        Zap.Pool memory pool = zap.pools(poolId);
-        pool.lpToken.safeTransferFrom(multiSig, address(this), amount);
-        pool.lpToken.safeApprove(address(pool.sett), amount);
-        pool.sett.deposit(amount);
-
-        amount = pool.sett.balanceOf(address(this));
-        IERC20(address(pool.sett)).safeApprove(address(settPeak), amount);
-        settPeak.mint(poolId, amount, new bytes32[](0));
+        // @todo transfer wbtc to msig
     }
 }
 

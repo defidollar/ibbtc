@@ -6,6 +6,7 @@ const {
 } = require('../utils');
 
 const badgerMultiSig = '0xB65cef03b9B89f99517643226d76e286ee999e77'
+const badgerMultiSigner = ethers.provider.getSigner(badgerMultiSig)
 const ibbtcMetaSig = '0xCF7346A5E41b0821b80D5B3fdc385EEB6Dc59F44'
 
 describe.only('rebalance', function() {
@@ -22,45 +23,94 @@ describe.only('rebalance', function() {
                 }
             }]
         })
-        console.log('here 1')
         const Rebalance = await ethers.getContractFactory('Rebalance')
-        console.log('here 2')
         rebalance = await Rebalance.deploy()
-        console.log('here 3')
 
         const config = require('../../deployments/mainnet.json')
-        ;([ badgerPeak, wbtcPeak, bBTC, zap ] = await Promise.all([
+        ;([ badgerPeak, wbtcPeak, Zap, proxyAdmin ] = await Promise.all([
             ethers.getContractAt('BadgerSettPeak', config.badgerPeak),
             ethers.getContractAt('BadgerSettPeak', config.byvWbtcPeak),
-            ethers.getContractAt('bBTC', config.bBtc),
-            ethers.getContractAt('Zap', config.zap)
+            ethers.getContractFactory('Zap'),
+            ethers.getContractAt('ProxyAdmin', config.proxyAdmin),
         ]))
+
+        await impersonateAccount(ibbtcMetaSig)
+        await web3.eth.sendTransaction({ from: alice, to: ibbtcMetaSig, value: _1e18 })
+        await badgerPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(rebalance.address)
+        await wbtcPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(rebalance.address)
+
+        const newZapImpl = await Zap.deploy()
+        await proxyAdmin.connect(ethers.provider.getSigner(ibbtcMetaSig)).upgrade(config.zap, newZapImpl.address)
+        zap = await ethers.getContractAt('Zap', config.zap)
+        await zap.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(rebalance.address)
 
         await impersonateAccount(badgerMultiSig)
         for (let i = 0; i < 3; i++) {
             const pool = await badgerPeak.pools(i)
             const sett = await ethers.getContractAt('ISett', pool.sett)
-            await sett.connect(ethers.provider.getSigner(badgerMultiSig)).approveContractAccess(rebalance.address)
+            await sett.connect(badgerMultiSigner).approveContractAccess(rebalance.address)
         }
 
-        await impersonateAccount(ibbtcMetaSig)
-        await web3.eth.sendTransaction({ from: alice, to: ibbtcMetaSig, value: _1e18 })
-        await zap.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(rebalance.address)
-        await badgerPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(rebalance.address)
-        await wbtcPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(rebalance.address)
+        ;([ wbtc, bBTC, crvRenWBTC, crvRenWSBTC, bcrvRenWBTC, bcrvRenWSBTC, btbtc, byvwbtc ] = await Promise.all([
+            ethers.getContractAt('IERC20', '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599'),
+            ethers.getContractAt('bBTC', config.bBtc),
+            ethers.getContractAt('IERC20', deployer.crvPools.ren.lpToken),
+            ethers.getContractAt('IERC20', deployer.crvPools.sbtc.lpToken),
+            ethers.getContractAt('IERC20', deployer.crvPools.ren.sett),
+            ethers.getContractAt('IERC20', deployer.crvPools.sbtc.sett),
+            ethers.getContractAt('IERC20', deployer.crvPools.tbtc.sett),
+            ethers.getContractAt('IERC20', '0x4b92d19c11435614CD49Af1b589001b7c08cD4D5'), // byvwbtc
+        ]))
     })
 
-    it('execute', async function() {
-        const crvRenWBTC = await ethers.getContractAt('IERC20', deployer.crvPools.ren.lpToken)
-        const crvRenWSBTC = await ethers.getContractAt('IERC20', deployer.crvPools.sbtc.lpToken)
-
+    it.skip('execute', async function() {
         console.log({
             crvRenWBTC: (await crvRenWBTC.balanceOf(badgerMultiSig)).toString(),
             crvRenWSBTC: (await crvRenWSBTC.balanceOf(badgerMultiSig)).toString(),
         })
-        await crvRenWBTC.connect(ethers.provider.getSigner(badgerMultiSig)).approve(rebalance.address, await crvRenWBTC.balanceOf(badgerMultiSig))
-        await crvRenWSBTC.connect(ethers.provider.getSigner(badgerMultiSig)).approve(rebalance.address, await crvRenWSBTC.balanceOf(badgerMultiSig))
+        await crvRenWBTC.connect(badgerMultiSigner).approve(rebalance.address, await crvRenWBTC.balanceOf(badgerMultiSig))
+        await crvRenWSBTC.connect(badgerMultiSigner).approve(rebalance.address, await crvRenWSBTC.balanceOf(badgerMultiSig))
 
         await rebalance.execute()
     })
+
+    it('cycle', async function() {
+        await printComposition()
+        await printMultisigBalances()
+
+        await crvRenWBTC.connect(badgerMultiSigner).approve(rebalance.address, await crvRenWBTC.balanceOf(badgerMultiSig))
+        await crvRenWSBTC.connect(badgerMultiSigner).approve(rebalance.address, await crvRenWSBTC.balanceOf(badgerMultiSig))
+
+        await rebalance.connect(badgerMultiSigner).cycleWithSett(0, await crvRenWBTC.balanceOf(badgerMultiSig))
+        await rebalance.connect(badgerMultiSigner).cycleWithSett(1, await crvRenWSBTC.balanceOf(badgerMultiSig))
+
+        await wbtc.connect(badgerMultiSigner).approve(rebalance.address, await wbtc.balanceOf(badgerMultiSig))
+        await rebalance.connect(badgerMultiSigner).cycleWithWbtc(0, 1, await wbtc.balanceOf(badgerMultiSig))
+
+        await printComposition()
+        await printMultisigBalances()
+    })
+
+    async function printComposition() {
+        let bals = (await Promise.all([
+            bcrvRenWBTC.balanceOf(badgerPeak.address),
+            bcrvRenWSBTC.balanceOf(badgerPeak.address),
+            btbtc.balanceOf(badgerPeak.address),
+        ])).map(b => parseFloat(web3.utils.fromWei(b.toString())))
+        const _byvWbtc = (await byvwbtc.balanceOf(wbtcPeak.address)).toNumber() / 1e8
+        bals = bals.concat(_byvWbtc)
+        const total = bals.reduce((a, b) => a + b)
+        console.log({
+            balances: bals,
+            percentage: bals.map(b => b * 100 / total)
+        })
+    }
+
+    async function printMultisigBalances() {
+        console.log({
+            crvRenWBTC: parseFloat(web3.utils.fromWei((await crvRenWBTC.balanceOf(badgerMultiSig)).toString())),
+            crvRenWSBTC: parseFloat(web3.utils.fromWei((await crvRenWSBTC.balanceOf(badgerMultiSig)).toString())),
+            wbtc: (await wbtc.balanceOf(badgerMultiSig)).toNumber() / 1e8
+        })
+    }
 })
