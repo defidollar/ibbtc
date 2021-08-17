@@ -19,7 +19,7 @@ describe.only('rebalance', function() {
             params: [{
                 forking: {
                     jsonRpcUrl: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY}`,
-                    blockNumber: 12887417
+                    blockNumber: 13040510
                 }
             }]
         })
@@ -35,7 +35,7 @@ describe.only('rebalance', function() {
         ]))
 
         await impersonateAccount(ibbtcMetaSig)
-        await web3.eth.sendTransaction({ from: alice, to: ibbtcMetaSig, value: _1e18 })
+        await web3.eth.sendTransaction({ from: alice, to: ibbtcMetaSig, value: _1e18.mul(3) })
         await badgerPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(rebalance.address)
         await wbtcPeak.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(rebalance.address)
 
@@ -45,6 +45,7 @@ describe.only('rebalance', function() {
         await zap.connect(ethers.provider.getSigner(ibbtcMetaSig)).approveContractAccess(rebalance.address)
 
         await impersonateAccount(badgerMultiSig)
+        await web3.eth.sendTransaction({ from: alice, to: badgerMultiSig, value: _1e18.mul(3) })
         for (let i = 0; i < 3; i++) {
             const pool = await badgerPeak.pools(i)
             const sett = await ethers.getContractAt('ISett', pool.sett)
@@ -63,29 +64,20 @@ describe.only('rebalance', function() {
         ]))
     })
 
-    it.skip('execute', async function() {
-        console.log({
-            crvRenWBTC: (await crvRenWBTC.balanceOf(badgerMultiSig)).toString(),
-            crvRenWSBTC: (await crvRenWSBTC.balanceOf(badgerMultiSig)).toString(),
-        })
-        await crvRenWBTC.connect(badgerMultiSigner).approve(rebalance.address, await crvRenWBTC.balanceOf(badgerMultiSig))
-        await crvRenWSBTC.connect(badgerMultiSigner).approve(rebalance.address, await crvRenWSBTC.balanceOf(badgerMultiSig))
-
-        await rebalance.execute()
-    })
-
     it('cycle', async function() {
-        await printComposition()
+        await Promise.all([
+            wbtc.connect(badgerMultiSigner).approve(rebalance.address, ethers.constants.MaxUint256),
+            crvRenWBTC.connect(badgerMultiSigner).approve(rebalance.address, ethers.constants.MaxUint256),
+            crvRenWSBTC.connect(badgerMultiSigner).approve(rebalance.address, ethers.constants.MaxUint256)
+        ])
         await printMultisigBalances()
+        await printComposition()
 
-        await crvRenWBTC.connect(badgerMultiSigner).approve(rebalance.address, await crvRenWBTC.balanceOf(badgerMultiSig))
-        await crvRenWSBTC.connect(badgerMultiSigner).approve(rebalance.address, await crvRenWSBTC.balanceOf(badgerMultiSig))
-
-        await rebalance.connect(badgerMultiSigner).cycleWithSett(0, await crvRenWBTC.balanceOf(badgerMultiSig))
-        await rebalance.connect(badgerMultiSigner).cycleWithSett(1, await crvRenWSBTC.balanceOf(badgerMultiSig))
-
-        await wbtc.connect(badgerMultiSigner).approve(rebalance.address, await wbtc.balanceOf(badgerMultiSig))
-        await rebalance.connect(badgerMultiSigner).cycleWithWbtc(0, 1, await wbtc.balanceOf(badgerMultiSig))
+        await rebalance.connect(badgerMultiSigner).cycleWithSett(0, _1e18.mul(100))
+        await rebalance.connect(badgerMultiSigner).cycleWithSett(1, _1e18.mul(50))
+        await rebalance.connect(badgerMultiSigner).cycleWithWbtc(0, 1, _1e8.mul(150))
+        await rebalance.connect(badgerMultiSigner).cycleWithWbtc(0, 1, _1e8.mul(150))
+        await rebalance.connect(badgerMultiSigner).cycleWithWbtc(1, 1, _1e8.mul(158))
 
         await printComposition()
         await printMultisigBalances()

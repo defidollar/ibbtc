@@ -24,11 +24,9 @@ contract Rebalance {
 
     IZap public constant zap = IZap(0x4459A591c61CABd905EAb8486Bf628432b15C8b1);
 
-    address multiSig = 0xB65cef03b9B89f99517643226d76e286ee999e77;
-
     function cycleWithSett(uint poolId, uint amount) external {
         Zap.Pool memory pool = zap.pools(poolId);
-        pool.lpToken.safeTransferFrom(multiSig, address(this), amount);
+        pool.lpToken.safeTransferFrom(msg.sender, address(this), amount);
         pool.lpToken.safeApprove(address(pool.sett), amount);
         pool.sett.deposit(amount);
 
@@ -48,49 +46,7 @@ contract Rebalance {
     function _redeem(uint _ibbtc, address user) internal {
         ibbtc.safeApprove(address(zap), _ibbtc);
         uint _wbtc = zap.redeem(wbtc, _ibbtc, 3, 0, 0); // redeem from byvwbtc
-        // console.log('_wbtc', _wbtc);
         wbtc.safeTransfer(user, _wbtc);
-    }
-
-    function execute() external {
-        // Desired: bcrvRenWBTC = 400, bcrvRenWSBTC = 200, btbtc/sbtcCrv = 0, byvWBTC = 67
-        // Current: bcrvRenWBTC = 31.7, bcrvRenWSBTC = 0.7, btbtc/sbtcCrv = 9.95, byvWBTC = 624
-
-        // _mint(0, 88e18); // mint ibbtc with 100 crvRenWBTC
-        // _mint(1, 50e18);  // mint ibbtc with 50 crvRenWSBTC
-
-        // composition: bcrvRenWBTC = 131.7, bcrvRenWSBTC = 50.7, btbtc/sbtcCrv = 9.95, byvWBTC = 624
-        // redeem ibbtc in wbtc
-        uint _ibbtc = ibbtc.balanceOf(address(this));
-        uint redeemFromTbtc = 9e18;
-        zap.redeem(wbtc, 9e18, 2, 2 /* wbtc */, 0); // redeem from tbtc-sbtcCrv
-        zap.redeem(wbtc, _ibbtc.sub(redeemFromTbtc) /* ~40 */, 3, 0, 0); // redeem from byvwbtc
-
-        // bcrvRenWBTC = 131.7, bcrvRenWSBTC = 50.7, btbtc/sbtcCrv = ~0, byvWBTC = 484
-        // contract has ~150 wbtc
-        uint _wbtc = wbtc.balanceOf(address(this));
-        _ibbtc = zap.mint(wbtc, _wbtc, 0, 1, 0); // mint with bcrvRenWBTC
-
-        // bcrvRenWBTC = 281.7, bcrvRenWSBTC = 50.7, btbtc/sbtcCrv = ~0, byvWBTC = 484
-        zap.redeem(wbtc, _ibbtc, 3, 0, 0); // redeem from byvwbtc
-
-        // bcrvRenWBTC = 281.7, bcrvRenWSBTC = 50.7, btbtc/sbtcCrv = ~0, byvWBTC = 334
-        _wbtc = 120e8;
-        _ibbtc = zap.mint(wbtc, _wbtc, 0, 1, 0); // mint with bcrvRenWBTC
-
-        // bcrvRenWBTC = 400, bcrvRenWSBTC = 50.7, btbtc/sbtcCrv = ~0, byvWBTC = 334
-        zap.redeem(wbtc, _ibbtc, 3, 0, 0); // redeem from byvwbtc
-
-        // bcrvRenWBTC = 400, bcrvRenWSBTC = 50.7, btbtc/sbtcCrv = ~0, byvWBTC = 214
-        _wbtc = wbtc.balanceOf(address(this)); // ~150
-        zap.mint(wbtc, _wbtc, 1, 1, 0); // mint with bcrvRenWSBTC
-
-        // bcrvRenWBTC = 400, bcrvRenWSBTC = 200, btbtc/sbtcCrv = ~0, byvWBTC = 214
-        _ibbtc = ibbtc.balanceOf(address(this)); // ~150
-        zap.redeem(wbtc, _ibbtc, 3, 0, 0); // redeem from byvwbtc
-        // bcrvRenWBTC = 400, bcrvRenWSBTC = 200, btbtc/sbtcCrv = ~0, byvWBTC = 64
-
-        // @todo transfer wbtc to msig
     }
 }
 

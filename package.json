@@ -18,7 +18,7 @@
     "chai": "^4.2.0",
     "ethereum-waffle": "^3.2.1",
     "ethers": "^5.0.26",
-    "hardhat": "^2.0.8",
+    "hardhat": "^2.6.0",
     "hardhat-spdx-license-identifier": "^2.0.3",
     "keccak256": "^1.0.2",
     "lodash": "^4.17.21",
