@@ -70,17 +70,17 @@ describe.only('rebalance', function() {
             crvRenWBTC.connect(badgerMultiSigner).approve(rebalance.address, ethers.constants.MaxUint256),
             crvRenWSBTC.connect(badgerMultiSigner).approve(rebalance.address, ethers.constants.MaxUint256)
         ])
-        await printMultisigBalances()
-        await printComposition()
+        await printMultisigBalances() // { crvRenWBTC: 105.01, crvRenWSBTC: 57.76, wbtc: 7.6 }
+        await printComposition() // percentages: [ 4.478384934393702, 0.37264967364677587, 0.006381069436712366, 95.14258432252282]
 
-        await rebalance.connect(badgerMultiSigner).cycleWithSett(0, _1e18.mul(100))
-        await rebalance.connect(badgerMultiSigner).cycleWithSett(1, _1e18.mul(50))
+        await rebalance.connect(badgerMultiSigner).cycleWithSett(0, await crvRenWBTC.balanceOf(badgerMultiSig)) // 105.01
+        await rebalance.connect(badgerMultiSigner).cycleWithSett(1, await crvRenWSBTC.balanceOf(badgerMultiSig)) // 57.76
         await rebalance.connect(badgerMultiSigner).cycleWithWbtc(0, 1, _1e8.mul(150))
         await rebalance.connect(badgerMultiSigner).cycleWithWbtc(0, 1, _1e8.mul(150))
         await rebalance.connect(badgerMultiSigner).cycleWithWbtc(1, 1, _1e8.mul(158))
 
-        await printComposition()
-        await printMultisigBalances()
+        await printComposition() // percentages: [ 60.13715002870447, 30.13228728679639, 0.006456731102912498, 9.724105953396219 ]
+        await printMultisigBalances() // { crvRenWBTC: 0, crvRenWSBTC: 0, wbtc: 170.692035 }
     })
 
     async function printComposition() {
@@ -94,7 +94,7 @@ describe.only('rebalance', function() {
         const total = bals.reduce((a, b) => a + b)
         console.log({
             balances: bals,
-            percentage: bals.map(b => b * 100 / total)
+            percentages: bals.map(b => b * 100 / total)
         })
     }
 
