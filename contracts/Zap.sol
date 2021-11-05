@@ -180,22 +180,6 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
 
         // poolId=0, idx=0
         (bBTC, fee) = curveLPToIbbtc(0, pools[0].deposit.calc_token_amount([amount,0], true));
-
-        (_ibbtc, _fee) = curveLPToIbbtc(1, pools[1].deposit.calc_token_amount([amount,0,0], true));
-        if (_ibbtc > bBTC) {
-            bBTC = _ibbtc;
-            fee = _fee;
-            poolId = 1;
-            // idx=0
-        }
-
-        (_ibbtc, _fee) = curveLPToIbbtc(2, pools[2].deposit.calc_token_amount([0,amount,0,0], true));
-        if (_ibbtc > bBTC) {
-            bBTC = _ibbtc;
-            fee = _fee;
-            poolId = 2;
-            idx = 1;
-        }
     }
 
     /**
@@ -216,31 +200,6 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
         // poolId=0
         (bBTC, fee) = curveLPToIbbtc(0, pools[0].deposit.calc_token_amount([0,amount], true));
         idx = 1;
-
-        (_ibbtc, _fee) = curveLPToIbbtc(1, pools[1].deposit.calc_token_amount([0,amount,0], true));
-        if (_ibbtc > bBTC) {
-            bBTC = _ibbtc;
-            fee = _fee;
-            poolId = 1;
-            // idx=1
-        }
-
-        (_ibbtc, _fee) = curveLPToIbbtc(2, pools[2].deposit.calc_token_amount([0,0,amount,0], true));
-        if (_ibbtc > bBTC) {
-            bBTC = _ibbtc;
-            fee = _fee;
-            poolId = 2;
-            idx = 2;
-        }
-
-        // for byvwbtc, sett.pricePerShare returns a wbtc value, as opposed to lpToken amount in setts
-        (_ibbtc, _fee) = byvWbtcPeak.calcMint(amount.mul(1e8).div(IbyvWbtc(address(pools[3].sett)).pricePerShare()));
-        if (_ibbtc > bBTC) {
-            bBTC = _ibbtc;
-            fee = _fee;
-            poolId = 3;
-            // idx value will be ignored anyway
-        }
     }
 
     /**
