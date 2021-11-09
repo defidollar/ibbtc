@@ -277,24 +277,6 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
         // poolId=0, idx=0
         (_lp, fee) = ibbtcToCurveLP(0, amount);
         renAmount = pools[0].deposit.calc_withdraw_one_coin(_lp, 0);
-
-        (_lp, _fee) = ibbtcToCurveLP(1, amount);
-        _ren = pools[1].deposit.calc_withdraw_one_coin(_lp, 0);
-        if (_ren > renAmount) {
-            renAmount = _ren;
-            fee = _fee;
-            poolId = 1;
-            // idx=0
-        }
-
-        (_lp, _fee) = ibbtcToCurveLP(2, amount);
-        _ren = pools[2].deposit.calc_withdraw_one_coin(_lp, 1);
-        if (_ren > renAmount) {
-            renAmount = _ren;
-            fee = _fee;
-            poolId = 2;
-            idx = 1;
-        }
     }
 
     /**
@@ -317,37 +299,6 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
         (_lp, fee) = ibbtcToCurveLP(0, amount);
         wBTCAmount = pools[0].deposit.calc_withdraw_one_coin(_lp, 1);
         idx = 1;
-
-        (_lp, _fee) = ibbtcToCurveLP(1, amount);
-        _wbtc = pools[1].deposit.calc_withdraw_one_coin(_lp, 1);
-        if (_wbtc > wBTCAmount) {
-            wBTCAmount = _wbtc;
-            fee = _fee;
-            poolId = 1;
-            // idx=1
-        }
-
-        (_lp, _fee) = ibbtcToCurveLP(2, amount);
-        _wbtc = pools[2].deposit.calc_withdraw_one_coin(_lp, 2);
-        if (_wbtc > wBTCAmount) {
-            wBTCAmount = _wbtc;
-            fee = _fee;
-            poolId = 2;
-            idx = 2;
-        }
-
-        uint _byvWbtc;
-        uint _max;
-        (_byvWbtc,_fee,_max) = byvWbtcPeak.calcRedeem(amount);
-        if (amount <= _max) {
-            uint strategyFee = _byvWbtc.mul(pools[3].sett.withdrawalFee()).div(10000);
-            _wbtc = _byvWbtc.sub(strategyFee).mul(pools[3].sett.pricePerShare()).div(1e8);
-            if (_wbtc > wBTCAmount) {
-                wBTCAmount = _wbtc;
-                fee = _fee.add(strategyFee);
-                poolId = 3;
-            }
-        }
     }
 
     function ibbtcToCurveLP(uint poolId, uint bBtc) public view returns(uint lp, uint fee) {
@@ -360,7 +311,7 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
         } else {
             // pesimistically charge 0.5% on the withdrawal.
             // Actual fee might be lesser if the vault keeps keeps a buffer
-            uint strategyFee = sett.mul(controller.strategies(pool.lpToken).withdrawalFee()).div(1000);
+            uint strategyFee = sett.mul(controller.strategies(pool.lpToken).withdrawalFee()).div(10000);
             lp = sett.sub(strategyFee).mul(pool.sett.getPricePerFullShare()).div(1e18);
             fee = fee.add(strategyFee);
         }
