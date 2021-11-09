@@ -164,7 +164,7 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
     }
 
     /**
-    * @notice Calculate the most optimal route and expected ibbtc amount when minting with renBTC.
+    * @notice Calculate mint through renWBTC pool route and expected ibbtc amount when minting with renBTC.
     * @dev Use returned params poolId, idx and bBTC in the call to mint(...)
            The last param `minOut` in mint(...) should be a bit more than the returned bBTC value.
            For instance 0.2% - 1% higher depending on slippage tolerange.
@@ -183,7 +183,7 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
     }
 
     /**
-    * @notice Calculate the most optimal route and expected ibbtc amount when minting with wBTC.
+    * @notice Calculate mint through renWBTC pool route and expected ibbtc amount when minting with wBTC.
     * @dev Use returned params poolId, idx and bBTC in the call to mint(...)
            The last param `minOut` in mint(...) should be a bit more than the returned bBTC value.
            For instance 0.2% - 1% higher depending on slippage tolerange.
@@ -238,7 +238,7 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
     }
 
     /**
-    * @notice Calculate the most optimal route and expected token amount when redeeming ibbtc.
+    * @notice Calculate redeem through renWBTC pool route and expected token amount when redeeming ibbtc.
     * @dev Use returned params poolId, idx and out in the call to redeem(...)
            The last param `redeem` in mint(...) should be a bit less than the returned `out` value.
            For instance 0.2% - 1% lesser depending on slippage tolerange.
@@ -259,7 +259,7 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
     }
 
     /**
-    * @notice Calculate the most optimal route and expected renbtc amount when redeeming ibbtc.
+    * @notice Calculate redeem through renWBTC pool route and expected renbtc amount when redeeming ibbtc.
     * @dev Use returned params poolId, idx and renAmount in the call to redeem(...)
            The last param `minOut` in redeem(...) should be a bit less than the returned renAmount value.
            For instance 0.2% - 1% lesser depending on slippage tolerange.
