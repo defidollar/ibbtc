@@ -12,7 +12,7 @@ import {ICore} from "../interfaces/ICore.sol";
 import {IbyvWbtc} from "../interfaces/IbyvWbtc.sol";
 import {IByvWbtcPeak} from "../interfaces/IPeak.sol";
 
-contract BadgerYearnWbtcPeak is AccessControlDefended, IByvWbtcPeak {
+contract BadgerYearnWbtcPeak is AccessControlDefended, Pausable, IByvWbtcPeak {
     using SafeERC20 for IERC20;
     using SafeERC20 for IbyvWbtc;
 
@@ -21,6 +21,11 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IByvWbtcPeak {
 
     ICore public immutable core;
     IbyvWbtc public immutable byvWBTC;
+
+    bool public mintEnabled;
+    bool public redeemEnabled;
+
+    address public guardian;
 
     // END OF STORAGE VARIABLES
 
@@ -35,6 +40,43 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IByvWbtcPeak {
         byvWBTC = IbyvWbtc(_byvWBTC);
     }
 
+    modifier onlyWhenMintEnabled() {
+        require(mintEnabled, "Mint Disabled");
+        _;
+    }
+
+    modifier onlyWhenRedeemEnabled() {
+        require(redeemEnabled, "Redeem Disabled");
+        _;
+    }
+
+    modifier onlyGuardianOrGovernance() {
+        require(msg.sender == guardian || msg.sender == governance, "onlyGuardianOrGovernance");
+        _;
+    }
+
+    // ===== Pausing Functionality =====
+    function pause() onlyGuardianOrGovernance {
+        _pause();
+    }
+
+    function unpause() onlyGovernance {
+        unpause();
+    }
+
+    // ===== Governance Functionality =====
+    function setMintEnabled(bool _enabled) external onlyGovernance {
+        mintEnabled = _enabled;
+    }
+
+    function setRedeemEnabled(bool _enabled) external onlyGovernance {
+        redeemEnabled = _enabled;
+    }
+
+    function setGuardian(address _guardian) external onlyGovernance {
+        guardian = _guardian;
+    }
+
     /**
     * @notice Mint bBTC with byvWBTC token
     * @dev Invoking byvWBTC.safeTransferFrom() before core.mint(), will mess up core.totalSystemAssets() calculation
@@ -46,6 +88,8 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IByvWbtcPeak {
         external
         defend
         blockLocked
+        whenNotPaused
+        onlyWhenMintEnabled
         returns(uint outAmount)
     {
         _lockForBlock(msg.sender);
@@ -66,6 +110,8 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IByvWbtcPeak {
         external
         defend
         blockLocked
+        whenNotPaused
+        onlyWhenRedeemEnabled
         returns (uint outAmount)
     {
         _lockForBlock(msg.sender);

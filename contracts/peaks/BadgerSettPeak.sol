@@ -14,7 +14,7 @@ import {ICore} from "../interfaces/ICore.sol";
 import {ISett} from "../interfaces/ISett.sol";
 import {IBadgerSettPeak} from "../interfaces/IPeak.sol";
 
-contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
+contract BadgerSettPeak is AccessControlDefended, Pausable, IBadgerSettPeak {
     using SafeERC20 for IERC20;
     using SafeERC20 for ISett;
     using SafeMath for uint;
@@ -29,6 +29,11 @@ contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
     mapping(uint => CurvePool) public pools;
     uint public numPools;
 
+    bool public mintEnabled;
+    bool public redeemEnabled;
+
+    address public guardian;
+
     // END OF STORAGE VARIABLES
 
     event Mint(address account, uint ibBTC, uint sett);
@@ -39,6 +44,31 @@ contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
     */
     constructor(address _core) public {
         core = ICore(_core);
+    }
+
+    modifier onlyWhenMintEnabled() {
+        require(mintEnabled, "Mint Disabled");
+        _;
+    }
+
+    modifier onlyWhenRedeemEnabled() {
+        require(redeemEnabled, "Redeem Disabled");
+        _;
+    }
+
+    modifier onlyGuardianOrGovernance() {
+        require(msg.sender == guardian || msg.sender == governance, "onlyGuardianOrGovernance");
+        _;
+    }
+
+    // ===== Pausing Functionality =====
+    
+    function pause() onlyGuardianOrGovernance {
+        _pause();
+    }
+
+    function unpause() onlyGovernance {
+        unpause();
     }
 
     /**
@@ -53,6 +83,8 @@ contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
         external
         defend
         blockLocked
+        whenNotPaused
+        onlyWhenMintEnabled
         returns(uint outAmount)
     {
         _lockForBlock(msg.sender);
@@ -76,6 +108,8 @@ contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
         external
         defend
         blockLocked
+        whenNotPaused
+        onlyWhenRedeemEnabled
         returns (uint outAmount)
     {
         _lockForBlock(msg.sender);
@@ -203,5 +237,17 @@ contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
             }
         }
         numPools = _pools.length;
+    }
+
+    function setMintEnabled(bool _enabled) external onlyGovernance {
+        mintEnabled = _enabled;
+    }
+
+    function setRedeemEnabled(bool _enabled) external onlyGovernance {
+        redeemEnabled = _enabled;
+    }
+
+    function setGuardian(address _guardian) external onlyGovernance {
+        guardian = _guardian;
     }
 }
