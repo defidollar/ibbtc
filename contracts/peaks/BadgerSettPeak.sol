@@ -29,9 +29,6 @@ contract BadgerSettPeak is AccessControlDefended, Pausable, IBadgerSettPeak {
     mapping(uint => CurvePool) public pools;
     uint public numPools;
 
-    bool public mintEnabled;
-    bool public redeemEnabled;
-
     address public guardian;
 
     // END OF STORAGE VARIABLES
@@ -46,16 +43,6 @@ contract BadgerSettPeak is AccessControlDefended, Pausable, IBadgerSettPeak {
         core = ICore(_core);
     }
 
-    modifier onlyWhenMintEnabled() {
-        require(mintEnabled, "Mint Disabled");
-        _;
-    }
-
-    modifier onlyWhenRedeemEnabled() {
-        require(redeemEnabled, "Redeem Disabled");
-        _;
-    }
-
     modifier onlyGuardianOrGovernance() {
         require(msg.sender == guardian || msg.sender == governance, "onlyGuardianOrGovernance");
         _;
@@ -68,7 +55,7 @@ contract BadgerSettPeak is AccessControlDefended, Pausable, IBadgerSettPeak {
     }
 
     function unpause() onlyGovernance {
-        unpause();
+        _unpause();
     }
 
     /**
@@ -84,7 +71,6 @@ contract BadgerSettPeak is AccessControlDefended, Pausable, IBadgerSettPeak {
         defend
         blockLocked
         whenNotPaused
-        onlyWhenMintEnabled
         returns(uint outAmount)
     {
         _lockForBlock(msg.sender);
@@ -109,7 +95,6 @@ contract BadgerSettPeak is AccessControlDefended, Pausable, IBadgerSettPeak {
         defend
         blockLocked
         whenNotPaused
-        onlyWhenRedeemEnabled
         returns (uint outAmount)
     {
         _lockForBlock(msg.sender);
@@ -220,6 +205,10 @@ contract BadgerSettPeak is AccessControlDefended, Pausable, IBadgerSettPeak {
         onlyGovernance
     {
         CurvePool memory pool;
+
+        // We only will support one asset per peak going forward. While somewhat hacky, this allows us to preserve the interface and existing code.
+        require(_pools.length <= 1, "maximum of one whitelisted pool");
+
         for (uint i = 0; i < _pools.length; i++) {
             pool = _pools[i];
             require(
@@ -237,14 +226,6 @@ contract BadgerSettPeak is AccessControlDefended, Pausable, IBadgerSettPeak {
             }
         }
         numPools = _pools.length;
-    }
-
-    function setMintEnabled(bool _enabled) external onlyGovernance {
-        mintEnabled = _enabled;
-    }
-
-    function setRedeemEnabled(bool _enabled) external onlyGovernance {
-        redeemEnabled = _enabled;
     }
 
     function setGuardian(address _guardian) external onlyGovernance {

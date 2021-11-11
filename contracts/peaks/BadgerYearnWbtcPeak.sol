@@ -22,9 +22,6 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, Pausable, IByvWbtcPeak {
     ICore public immutable core;
     IbyvWbtc public immutable byvWBTC;
 
-    bool public mintEnabled;
-    bool public redeemEnabled;
-
     address public guardian;
 
     // END OF STORAGE VARIABLES
@@ -40,16 +37,6 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, Pausable, IByvWbtcPeak {
         byvWBTC = IbyvWbtc(_byvWBTC);
     }
 
-    modifier onlyWhenMintEnabled() {
-        require(mintEnabled, "Mint Disabled");
-        _;
-    }
-
-    modifier onlyWhenRedeemEnabled() {
-        require(redeemEnabled, "Redeem Disabled");
-        _;
-    }
-
     modifier onlyGuardianOrGovernance() {
         require(msg.sender == guardian || msg.sender == governance, "onlyGuardianOrGovernance");
         _;
@@ -61,18 +48,10 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, Pausable, IByvWbtcPeak {
     }
 
     function unpause() onlyGovernance {
-        unpause();
+        _unpause();
     }
 
     // ===== Governance Functionality =====
-    function setMintEnabled(bool _enabled) external onlyGovernance {
-        mintEnabled = _enabled;
-    }
-
-    function setRedeemEnabled(bool _enabled) external onlyGovernance {
-        redeemEnabled = _enabled;
-    }
-
     function setGuardian(address _guardian) external onlyGovernance {
         guardian = _guardian;
     }
@@ -89,7 +68,6 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, Pausable, IByvWbtcPeak {
         defend
         blockLocked
         whenNotPaused
-        onlyWhenMintEnabled
         returns(uint outAmount)
     {
         _lockForBlock(msg.sender);
@@ -111,7 +89,6 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, Pausable, IByvWbtcPeak {
         defend
         blockLocked
         whenNotPaused
-        onlyWhenRedeemEnabled
         returns (uint outAmount)
     {
         _lockForBlock(msg.sender);
