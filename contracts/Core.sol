@@ -56,7 +56,7 @@ contract Core is GovernableProxy, PausableSlot, ICore {
     }
 
     modifier onlyGovernanceOrBadgerGovernance() {
-        require(msg.sender == badgerGovernance || msg.sender == owner(), "onlyGuardianOrBadgerGovernance");
+        require(msg.sender == badgerGovernance || msg.sender == owner(), "onlyGovernanceOrBadgerGovernance");
         _;
     }
 
@@ -224,11 +224,11 @@ contract Core is GovernableProxy, PausableSlot, ICore {
         feeSink = _feeSink;
     }
 
-    function setGuestList(address _guestList) external onlyGovernance {
+    function setGuestList(address _guestList) external onlyGovernanceOrBadgerGovernance {
         guestList = BadgerGuestListAPI(_guestList);
     }
 
-    function setGuardian(address _guardian) external onlyGovernance {
+    function setGuardian(address _guardian) external onlyGovernanceOrBadgerGovernance {
         guardian = _guardian;
     }
 
@@ -236,7 +236,7 @@ contract Core is GovernableProxy, PausableSlot, ICore {
         _pause();
     }
 
-    function unpause() external onlyGovernance {
+    function unpause() external onlyGovernanceOrBadgerGovernance {
         _unpause();
     }
 }
