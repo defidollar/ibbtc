@@ -8,7 +8,7 @@ import {SafeERC20, SafeMath} from "@openzeppelin/contracts/token/ERC20/SafeERC20
 import {Math} from "@openzeppelin/contracts/math/Math.sol";
 
 import {AccessControlDefended} from "../common/AccessControlDefended.sol";
-import {Pausable} from "../common/Pausable.sol";
+import {PausableSlot} from "../common/PausableSlot.sol";
 
 import {ISwap} from "../interfaces/ISwap.sol";
 import {ICore} from "../interfaces/ICore.sol";

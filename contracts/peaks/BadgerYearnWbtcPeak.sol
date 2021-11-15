@@ -8,12 +8,12 @@ import {SafeERC20, SafeMath} from "@openzeppelin/contracts/token/ERC20/SafeERC20
 import {Math} from "@openzeppelin/contracts/math/Math.sol";
 
 import {AccessControlDefended} from "../common/AccessControlDefended.sol";
-import {Pausable} from "../common/Pausable.sol";
+import {PausableSlot} from "../common/PausableSlot.sol";
 import {ICore} from "../interfaces/ICore.sol";
 import {IbyvWbtc} from "../interfaces/IbyvWbtc.sol";
 import {IByvWbtcPeak} from "../interfaces/IPeak.sol";
 
-contract BadgerYearnWbtcPeak is AccessControlDefended, Pausable, IByvWbtcPeak {
+contract BadgerYearnWbtcPeak is AccessControlDefended, PausableSlot, IByvWbtcPeak {
     using SafeERC20 for IERC20;
     using SafeERC20 for IbyvWbtc;
 
