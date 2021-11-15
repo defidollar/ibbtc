@@ -10,8 +10,9 @@ import {IPeak} from "./interfaces/IPeak.sol";
 import {IbBTC} from "./interfaces/IbBTC.sol";
 import {ICore} from "./interfaces/ICore.sol";
 import {GovernableProxy} from "./common/proxy/GovernableProxy.sol";
+import {PausableSlot} from "./common/PausableSlot.sol";
 
-contract Core is GovernableProxy, Pausable, ICore {
+contract Core is GovernableProxy, PausableSlot, ICore {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
     using Math for uint;
@@ -32,6 +33,7 @@ contract Core is GovernableProxy, Pausable, ICore {
     uint public accumulatedFee;
 
     address public guardian;
+    address constant public badgerGovernance = 0xB65cef03b9B89f99517643226d76e286ee999e77;
 
     uint256[49] private __gap;
 
@@ -49,7 +51,12 @@ contract Core is GovernableProxy, Pausable, ICore {
     }
 
     modifier onlyGuardianOrGovernance() {
-        require(msg.sender == guardian || msg.sender == governance, "onlyGuardianOrGovernance");
+        require(msg.sender == guardian || msg.sender == owner(), "onlyGuardianOrGovernance");
+        _;
+    }
+
+    modifier onlyGovernanceOrBadgerGovernance() {
+        require(msg.sender == badgerGovernance || msg.sender == owner(), "onlyGuardianOrBadgerGovernance");
         _;
     }
 
@@ -149,22 +156,13 @@ contract Core is GovernableProxy, Pausable, ICore {
         }
     }
 
-    /* ##### Governance ##### */
-    function pause() onlyGuardianOrGovernance {
-        _pause();
-    }
-
-    function unpause() onlyGovernance {
-        unpause();
-    }
-
     /**
     * @notice Whitelist a new peak
     * @param peak Address of the contract that interfaces with the 3rd-party protocol
     */
     function whitelistPeak(address peak)
         external
-        onlyGovernance
+        onlyGovernanceOrBadgerGovernance
     {
         require(
             peaks[peak] == PeakState.Extinct,
@@ -188,7 +186,7 @@ contract Core is GovernableProxy, Pausable, ICore {
     */
     function setPeakStatus(address peak, PeakState state)
         external
-        onlyGovernance
+        onlyGovernanceOrBadgerGovernance
     {
         require(
             peaks[peak] != PeakState.Extinct,
@@ -234,11 +232,11 @@ contract Core is GovernableProxy, Pausable, ICore {
         guardian = _guardian;
     }
 
-    function pause() onlyGuardianOrGovernance {
+    function pause() external onlyGuardianOrGovernance {
         _pause();
     }
 
-    function unpause() onlyGovernance {
+    function unpause() external onlyGovernance {
         _unpause();
     }
 }

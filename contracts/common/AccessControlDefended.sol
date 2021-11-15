@@ -32,7 +32,7 @@ contract AccessControlDefendedBase {
 }
 
 contract AccessControlDefended is GovernableProxy, AccessControlDefendedBase {
-    uint256[49] private __gap;
+    uint256[48] private __gap;
 
     function approveContractAccess(address account) external onlyGovernance {
         _approveContractAccess(account);

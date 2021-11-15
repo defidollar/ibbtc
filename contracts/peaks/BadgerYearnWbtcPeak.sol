@@ -8,6 +8,7 @@ import {SafeERC20, SafeMath} from "@openzeppelin/contracts/token/ERC20/SafeERC20
 import {Math} from "@openzeppelin/contracts/math/Math.sol";
 
 import {AccessControlDefended} from "../common/AccessControlDefended.sol";
+import {Pausable} from "../common/Pausable.sol";
 import {ICore} from "../interfaces/ICore.sol";
 import {IbyvWbtc} from "../interfaces/IbyvWbtc.sol";
 import {IByvWbtcPeak} from "../interfaces/IPeak.sol";
@@ -38,16 +39,16 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, Pausable, IByvWbtcPeak {
     }
 
     modifier onlyGuardianOrGovernance() {
-        require(msg.sender == guardian || msg.sender == governance, "onlyGuardianOrGovernance");
+        require(msg.sender == guardian || msg.sender == owner(), "onlyGuardianOrGovernance");
         _;
     }
 
     // ===== Pausing Functionality =====
-    function pause() onlyGuardianOrGovernance {
+    function pause() external onlyGuardianOrGovernance {
         _pause();
     }
 
-    function unpause() onlyGovernance {
+    function unpause() external onlyGovernance {
         _unpause();
     }
 

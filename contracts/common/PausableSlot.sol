@@ -2,7 +2,7 @@
 
 pragma solidity 0.6.11;
 
-contract Pausable {
+contract PausableSlot {
     /**
      * @dev Emitted when the pause is triggered by `account`.
      */
@@ -13,13 +13,23 @@ contract Pausable {
      */
     event Unpaused(address account);
 
-    bool private _paused;
+    bytes32 constant PAUSED_SLOT = keccak256("_paused");
 
     /**
      * @dev Returns true if the contract is paused, and false otherwise.
      */
-    function paused() public view returns (bool) {
-        return _paused;
+    function paused() public view returns (bool _paused) {
+        bytes32 position = PAUSED_SLOT;
+        assembly {
+            _paused := sload(position)
+        }
+    }
+
+    function _setPaused(bool _paused) internal {
+        bytes32 position = PAUSED_SLOT;
+        assembly {
+            sstore(position, _paused)
+        }
     }
 
     /**
@@ -30,7 +40,7 @@ contract Pausable {
      * - The contract must not be paused.
      */
     modifier whenNotPaused() {
-        require(!_paused, "Pausable: paused");
+        require(!paused(), "Pausable: paused");
         _;
     }
 
@@ -42,7 +52,7 @@ contract Pausable {
      * - The contract must be paused.
      */
     modifier whenPaused() {
-        require(_paused, "Pausable: not paused");
+        require(paused(), "Pausable: not paused");
         _;
     }
 
@@ -54,7 +64,7 @@ contract Pausable {
      * - The contract must not be paused.
      */
     function _pause() internal virtual whenNotPaused {
-        _paused = true;
+        _setPaused(true);
         emit Paused(msg.sender);
     }
 
@@ -66,7 +76,7 @@ contract Pausable {
      * - The contract must be paused.
      */
     function _unpause() internal virtual whenPaused {
-        _paused = false;
+        _setPaused(false);
         emit Unpaused(msg.sender);
     }
 }
