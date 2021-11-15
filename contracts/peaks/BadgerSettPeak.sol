@@ -15,7 +15,7 @@ import {ICore} from "../interfaces/ICore.sol";
 import {ISett} from "../interfaces/ISett.sol";
 import {IBadgerSettPeak} from "../interfaces/IPeak.sol";
 
-contract BadgerSettPeak is AccessControlDefended, Pausable, IBadgerSettPeak {
+contract BadgerSettPeak is AccessControlDefended, PausableSlot, IBadgerSettPeak {
     using SafeERC20 for IERC20;
     using SafeERC20 for ISett;
     using SafeMath for uint;
@@ -31,6 +31,7 @@ contract BadgerSettPeak is AccessControlDefended, Pausable, IBadgerSettPeak {
     uint public numPools;
 
     address public guardian;
+    address constant public badgerGovernance = 0xB65cef03b9B89f99517643226d76e286ee999e77;
 
     // END OF STORAGE VARIABLES
 
@@ -49,13 +50,18 @@ contract BadgerSettPeak is AccessControlDefended, Pausable, IBadgerSettPeak {
         _;
     }
 
+    modifier onlyGovernanceOrBadgerGovernance() {
+        require(msg.sender == badgerGovernance || msg.sender == owner(), "onlyGovernanceOrBadgerGovernance");
+        _;
+    }
+
     // ===== Pausing Functionality =====
     
     function pause() external onlyGuardianOrGovernance {
         _pause();
     }
 
-    function unpause() external onlyGovernance {
+    function unpause() external onlyGovernanceOrBadgerGovernance {
         _unpause();
     }
 
@@ -203,12 +209,9 @@ contract BadgerSettPeak is AccessControlDefended, Pausable, IBadgerSettPeak {
         CurvePool[] calldata _pools
     )
         external
-        onlyGovernance
+        onlyGovernanceOrBadgerGovernance
     {
         CurvePool memory pool;
-
-        // We only will support one asset per peak going forward. While somewhat hacky, this allows us to preserve the interface and existing code.
-        require(_pools.length <= 1, "maximum of one whitelisted pool");
 
         for (uint i = 0; i < _pools.length; i++) {
             pool = _pools[i];
@@ -229,7 +232,7 @@ contract BadgerSettPeak is AccessControlDefended, Pausable, IBadgerSettPeak {
         numPools = _pools.length;
     }
 
-    function setGuardian(address _guardian) external onlyGovernance {
+    function setGuardian(address _guardian) external onlyGovernanceOrBadgerGovernance {
         guardian = _guardian;
     }
 }
