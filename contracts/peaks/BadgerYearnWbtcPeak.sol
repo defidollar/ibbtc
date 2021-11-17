@@ -8,11 +8,12 @@ import {SafeERC20, SafeMath} from "@openzeppelin/contracts/token/ERC20/SafeERC20
 import {Math} from "@openzeppelin/contracts/math/Math.sol";
 
 import {AccessControlDefended} from "../common/AccessControlDefended.sol";
+import {PausableSlot} from "../common/PausableSlot.sol";
 import {ICore} from "../interfaces/ICore.sol";
 import {IbyvWbtc} from "../interfaces/IbyvWbtc.sol";
 import {IByvWbtcPeak} from "../interfaces/IPeak.sol";
 
-contract BadgerYearnWbtcPeak is AccessControlDefended, IByvWbtcPeak {
+contract BadgerYearnWbtcPeak is AccessControlDefended, PausableSlot, IByvWbtcPeak {
     using SafeERC20 for IERC20;
     using SafeERC20 for IbyvWbtc;
 
@@ -21,6 +22,8 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IByvWbtcPeak {
 
     ICore public immutable core;
     IbyvWbtc public immutable byvWBTC;
+
+    address public guardian;
 
     // END OF STORAGE VARIABLES
 
@@ -35,6 +38,25 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IByvWbtcPeak {
         byvWBTC = IbyvWbtc(_byvWBTC);
     }
 
+    modifier onlyGuardianOrGovernance() {
+        require(msg.sender == guardian || msg.sender == owner(), "onlyGuardianOrGovernance");
+        _;
+    }
+
+    // ===== Pausing Functionality =====
+    function pause() external onlyGuardianOrGovernance {
+        _pause();
+    }
+
+    function unpause() external onlyGovernance {
+        _unpause();
+    }
+
+    // ===== Governance Functionality =====
+    function setGuardian(address _guardian) external onlyGovernance {
+        guardian = _guardian;
+    }
+
     /**
     * @notice Mint bBTC with byvWBTC token
     * @dev Invoking byvWBTC.safeTransferFrom() before core.mint(), will mess up core.totalSystemAssets() calculation
@@ -46,6 +68,7 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IByvWbtcPeak {
         external
         defend
         blockLocked
+        whenNotPaused
         returns(uint outAmount)
     {
         _lockForBlock(msg.sender);
@@ -66,6 +89,7 @@ contract BadgerYearnWbtcPeak is AccessControlDefended, IByvWbtcPeak {
         external
         defend
         blockLocked
+        whenNotPaused
         returns (uint outAmount)
     {
         _lockForBlock(msg.sender);

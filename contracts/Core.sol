@@ -10,8 +10,9 @@ import {IPeak} from "./interfaces/IPeak.sol";
 import {IbBTC} from "./interfaces/IbBTC.sol";
 import {ICore} from "./interfaces/ICore.sol";
 import {GovernableProxy} from "./common/proxy/GovernableProxy.sol";
+import {PausableSlot} from "./common/PausableSlot.sol";
 
-contract Core is GovernableProxy, ICore {
+contract Core is GovernableProxy, PausableSlot, ICore {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
     using Math for uint;
@@ -22,7 +23,7 @@ contract Core is GovernableProxy, ICore {
 
     BadgerGuestListAPI public guestList;
 
-    enum PeakState { Extinct, Active, Dormant }
+    enum PeakState { Extinct, Active, RedeemOnly, MintOnly }
     mapping(address => PeakState) public peaks;
 
     address[] public peakAddresses;
@@ -31,7 +32,10 @@ contract Core is GovernableProxy, ICore {
     uint public redeemFee;
     uint public accumulatedFee;
 
-    uint256[50] private __gap;
+    address public guardian;
+    address constant public badgerGovernance = 0xB65cef03b9B89f99517643226d76e286ee999e77;
+
+    uint256[49] private __gap;
 
     // END OF STORAGE VARIABLES
 
@@ -46,6 +50,16 @@ contract Core is GovernableProxy, ICore {
         bBTC = IbBTC(_bBTC);
     }
 
+    modifier onlyGuardianOrGovernance() {
+        require(msg.sender == guardian || msg.sender == owner(), "onlyGuardianOrGovernance");
+        _;
+    }
+
+    modifier onlyGovernanceOrBadgerGovernance() {
+        require(msg.sender == badgerGovernance || msg.sender == owner(), "onlyGovernanceOrBadgerGovernance");
+        _;
+    }
+
     /**
     * @notice Mint bBTC
     * @dev Only whitelisted peaks can call this function
@@ -55,9 +69,10 @@ contract Core is GovernableProxy, ICore {
     function mint(uint btc, address account, bytes32[] calldata merkleProof)
         override
         external
+        whenNotPaused
         returns(uint)
     {
-        require(peaks[msg.sender] == PeakState.Active, "PEAK_INACTIVE");
+        require(peaks[msg.sender] == PeakState.Active || peaks[msg.sender] == PeakState.MintOnly, "PEAK_INACTIVE_OR_MINTING_DISABLED");
         if (address(guestList) != address(0)) {
             require(
                 guestList.authorized(account, btc, merkleProof),
@@ -91,9 +106,9 @@ contract Core is GovernableProxy, ICore {
     * @param bBtc bBTC amount to redeem
     * @return btc amount redeemed, scaled by 1e36
     */
-    function redeem(uint bBtc, address account) override external returns (uint) {
+    function redeem(uint bBtc, address account) override external whenNotPaused returns (uint) {
         require(bBtc > 0, "REDEEMING_0_bBTC");
-        require(peaks[msg.sender] != PeakState.Extinct, "PEAK_EXTINCT");
+        require(peaks[msg.sender] == PeakState.Active || peaks[msg.sender] == PeakState.RedeemOnly, "PEAK_INACTIVE_OR_REDEMPTION_DISABLED");
         (uint btc, uint fee) = bBtcToBtc(bBtc);
         accumulatedFee = accumulatedFee.add(fee);
         bBTC.burn(account, bBtc);
@@ -119,7 +134,7 @@ contract Core is GovernableProxy, ICore {
     /**
     * @notice Collect all the accumulated fee (denominated in bBTC)
     */
-    function collectFee() external {
+    function collectFee() external whenNotPaused {
         require(feeSink != address(0), "NULL_ADDRESS");
         uint _fee = accumulatedFee;
         require(_fee > 0, "NO_FEE");
@@ -141,15 +156,13 @@ contract Core is GovernableProxy, ICore {
         }
     }
 
-    /* ##### Governance ##### */
-
     /**
     * @notice Whitelist a new peak
     * @param peak Address of the contract that interfaces with the 3rd-party protocol
     */
     function whitelistPeak(address peak)
         external
-        onlyGovernance
+        onlyGovernanceOrBadgerGovernance
     {
         require(
             peaks[peak] == PeakState.Extinct,
@@ -173,7 +186,7 @@ contract Core is GovernableProxy, ICore {
     */
     function setPeakStatus(address peak, PeakState state)
         external
-        onlyGovernance
+        onlyGovernanceOrBadgerGovernance
     {
         require(
             peaks[peak] != PeakState.Extinct,
@@ -211,8 +224,20 @@ contract Core is GovernableProxy, ICore {
         feeSink = _feeSink;
     }
 
-    function setGuestList(address _guestList) external onlyGovernance {
+    function setGuestList(address _guestList) external onlyGovernanceOrBadgerGovernance {
         guestList = BadgerGuestListAPI(_guestList);
+    }
+
+    function setGuardian(address _guardian) external onlyGovernanceOrBadgerGovernance {
+        guardian = _guardian;
+    }
+
+    function pause() external onlyGuardianOrGovernance {
+        _pause();
+    }
+
+    function unpause() external onlyGovernanceOrBadgerGovernance {
+        _unpause();
     }
 }
 

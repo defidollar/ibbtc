@@ -8,6 +8,7 @@ import {SafeERC20, SafeMath} from "@openzeppelin/contracts/token/ERC20/SafeERC20
 import {Math} from "@openzeppelin/contracts/math/Math.sol";
 
 import {AccessControlDefended} from "../common/AccessControlDefended.sol";
+import {PausableSlot} from "../common/PausableSlot.sol";
 
 import {ISwap} from "../interfaces/ISwap.sol";
 import {ICore} from "../interfaces/ICore.sol";
@@ -29,6 +30,8 @@ contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
     mapping(uint => CurvePool) public pools;
     uint public numPools;
 
+    
+
     // END OF STORAGE VARIABLES
 
     event Mint(address account, uint ibBTC, uint sett);
@@ -41,6 +44,9 @@ contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
         core = ICore(_core);
     }
 
+    
+    // ===== Pausing Functionality =====
+    
     /**
     * @notice Mint bBTC with Sett LP token
     * @dev Invoking pool.sett.safeTransferFrom() before core.mint(), will mess up core.totalSystemAssets() calculation
@@ -53,6 +59,7 @@ contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
         external
         defend
         blockLocked
+        whenNotPaused
         returns(uint outAmount)
     {
         _lockForBlock(msg.sender);
@@ -76,6 +83,7 @@ contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
         external
         defend
         blockLocked
+        whenNotPaused
         returns (uint outAmount)
     {
         _lockForBlock(msg.sender);
@@ -183,9 +191,10 @@ contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
         CurvePool[] calldata _pools
     )
         external
-        onlyGovernance
+        onlyGovernanceOrBadgerGovernance
     {
         CurvePool memory pool;
+
         for (uint i = 0; i < _pools.length; i++) {
             pool = _pools[i];
             require(
@@ -204,4 +213,6 @@ contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
         }
         numPools = _pools.length;
     }
+
+    
 }

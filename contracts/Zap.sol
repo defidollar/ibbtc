@@ -164,7 +164,7 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
     }
 
     /**
-    * @notice Calculate the most optimal route and expected ibbtc amount when minting with renBTC.
+    * @notice Calculate mint through renWBTC pool route and expected ibbtc amount when minting with renBTC.
     * @dev Use returned params poolId, idx and bBTC in the call to mint(...)
            The last param `minOut` in mint(...) should be a bit more than the returned bBTC value.
            For instance 0.2% - 1% higher depending on slippage tolerange.
@@ -180,26 +180,10 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
 
         // poolId=0, idx=0
         (bBTC, fee) = curveLPToIbbtc(0, pools[0].deposit.calc_token_amount([amount,0], true));
-
-        (_ibbtc, _fee) = curveLPToIbbtc(1, pools[1].deposit.calc_token_amount([amount,0,0], true));
-        if (_ibbtc > bBTC) {
-            bBTC = _ibbtc;
-            fee = _fee;
-            poolId = 1;
-            // idx=0
-        }
-
-        (_ibbtc, _fee) = curveLPToIbbtc(2, pools[2].deposit.calc_token_amount([0,amount,0,0], true));
-        if (_ibbtc > bBTC) {
-            bBTC = _ibbtc;
-            fee = _fee;
-            poolId = 2;
-            idx = 1;
-        }
     }
 
     /**
-    * @notice Calculate the most optimal route and expected ibbtc amount when minting with wBTC.
+    * @notice Calculate mint through renWBTC pool route and expected ibbtc amount when minting with wBTC.
     * @dev Use returned params poolId, idx and bBTC in the call to mint(...)
            The last param `minOut` in mint(...) should be a bit more than the returned bBTC value.
            For instance 0.2% - 1% higher depending on slippage tolerange.
@@ -216,31 +200,6 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
         // poolId=0
         (bBTC, fee) = curveLPToIbbtc(0, pools[0].deposit.calc_token_amount([0,amount], true));
         idx = 1;
-
-        (_ibbtc, _fee) = curveLPToIbbtc(1, pools[1].deposit.calc_token_amount([0,amount,0], true));
-        if (_ibbtc > bBTC) {
-            bBTC = _ibbtc;
-            fee = _fee;
-            poolId = 1;
-            // idx=1
-        }
-
-        (_ibbtc, _fee) = curveLPToIbbtc(2, pools[2].deposit.calc_token_amount([0,0,amount,0], true));
-        if (_ibbtc > bBTC) {
-            bBTC = _ibbtc;
-            fee = _fee;
-            poolId = 2;
-            idx = 2;
-        }
-
-        // for byvwbtc, sett.pricePerShare returns a wbtc value, as opposed to lpToken amount in setts
-        (_ibbtc, _fee) = byvWbtcPeak.calcMint(amount.mul(1e8).div(IbyvWbtc(address(pools[3].sett)).pricePerShare()));
-        if (_ibbtc > bBTC) {
-            bBTC = _ibbtc;
-            fee = _fee;
-            poolId = 3;
-            // idx value will be ignored anyway
-        }
     }
 
     /**
@@ -279,7 +238,7 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
     }
 
     /**
-    * @notice Calculate the most optimal route and expected token amount when redeeming ibbtc.
+    * @notice Calculate redeem through renWBTC pool route and expected token amount when redeeming ibbtc.
     * @dev Use returned params poolId, idx and out in the call to redeem(...)
            The last param `redeem` in mint(...) should be a bit less than the returned `out` value.
            For instance 0.2% - 1% lesser depending on slippage tolerange.
@@ -300,7 +259,7 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
     }
 
     /**
-    * @notice Calculate the most optimal route and expected renbtc amount when redeeming ibbtc.
+    * @notice Calculate redeem through renWBTC pool route and expected renbtc amount when redeeming ibbtc.
     * @dev Use returned params poolId, idx and renAmount in the call to redeem(...)
            The last param `minOut` in redeem(...) should be a bit less than the returned renAmount value.
            For instance 0.2% - 1% lesser depending on slippage tolerange.
@@ -318,24 +277,6 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
         // poolId=0, idx=0
         (_lp, fee) = ibbtcToCurveLP(0, amount);
         renAmount = pools[0].deposit.calc_withdraw_one_coin(_lp, 0);
-
-        (_lp, _fee) = ibbtcToCurveLP(1, amount);
-        _ren = pools[1].deposit.calc_withdraw_one_coin(_lp, 0);
-        if (_ren > renAmount) {
-            renAmount = _ren;
-            fee = _fee;
-            poolId = 1;
-            // idx=0
-        }
-
-        (_lp, _fee) = ibbtcToCurveLP(2, amount);
-        _ren = pools[2].deposit.calc_withdraw_one_coin(_lp, 1);
-        if (_ren > renAmount) {
-            renAmount = _ren;
-            fee = _fee;
-            poolId = 2;
-            idx = 1;
-        }
     }
 
     /**
@@ -358,37 +299,6 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
         (_lp, fee) = ibbtcToCurveLP(0, amount);
         wBTCAmount = pools[0].deposit.calc_withdraw_one_coin(_lp, 1);
         idx = 1;
-
-        (_lp, _fee) = ibbtcToCurveLP(1, amount);
-        _wbtc = pools[1].deposit.calc_withdraw_one_coin(_lp, 1);
-        if (_wbtc > wBTCAmount) {
-            wBTCAmount = _wbtc;
-            fee = _fee;
-            poolId = 1;
-            // idx=1
-        }
-
-        (_lp, _fee) = ibbtcToCurveLP(2, amount);
-        _wbtc = pools[2].deposit.calc_withdraw_one_coin(_lp, 2);
-        if (_wbtc > wBTCAmount) {
-            wBTCAmount = _wbtc;
-            fee = _fee;
-            poolId = 2;
-            idx = 2;
-        }
-
-        uint _byvWbtc;
-        uint _max;
-        (_byvWbtc,_fee,_max) = byvWbtcPeak.calcRedeem(amount);
-        if (amount <= _max) {
-            uint strategyFee = _byvWbtc.mul(pools[3].sett.withdrawalFee()).div(10000);
-            _wbtc = _byvWbtc.sub(strategyFee).mul(pools[3].sett.pricePerShare()).div(1e8);
-            if (_wbtc > wBTCAmount) {
-                wBTCAmount = _wbtc;
-                fee = _fee.add(strategyFee);
-                poolId = 3;
-            }
-        }
     }
 
     function ibbtcToCurveLP(uint poolId, uint bBtc) public view returns(uint lp, uint fee) {
@@ -401,7 +311,7 @@ contract Zap is Initializable, Pausable, AccessControlDefendedBase {
         } else {
             // pesimistically charge 0.5% on the withdrawal.
             // Actual fee might be lesser if the vault keeps keeps a buffer
-            uint strategyFee = sett.mul(controller.strategies(pool.lpToken).withdrawalFee()).div(1000);
+            uint strategyFee = sett.mul(controller.strategies(pool.lpToken).withdrawalFee()).div(10000);
             lp = sett.sub(strategyFee).mul(pool.sett.getPricePerFullShare()).div(1e18);
             fee = fee.add(strategyFee);
         }
