@@ -15,7 +15,7 @@ import {ICore} from "../interfaces/ICore.sol";
 import {ISett} from "../interfaces/ISett.sol";
 import {IBadgerSettPeak} from "../interfaces/IPeak.sol";
 
-contract BadgerSettPeak is AccessControlDefended, PausableSlot, IBadgerSettPeak {
+contract BadgerSettPeak is AccessControlDefended, IBadgerSettPeak {
     using SafeERC20 for IERC20;
     using SafeERC20 for ISett;
     using SafeMath for uint;
@@ -30,8 +30,7 @@ contract BadgerSettPeak is AccessControlDefended, PausableSlot, IBadgerSettPeak 
     mapping(uint => CurvePool) public pools;
     uint public numPools;
 
-    address public guardian;
-    address constant public badgerGovernance = 0xB65cef03b9B89f99517643226d76e286ee999e77;
+    
 
     // END OF STORAGE VARIABLES
 
@@ -45,26 +44,9 @@ contract BadgerSettPeak is AccessControlDefended, PausableSlot, IBadgerSettPeak 
         core = ICore(_core);
     }
 
-    modifier onlyGuardianOrGovernance() {
-        require(msg.sender == guardian || msg.sender == owner(), "onlyGuardianOrGovernance");
-        _;
-    }
-
-    modifier onlyGovernanceOrBadgerGovernance() {
-        require(msg.sender == badgerGovernance || msg.sender == owner(), "onlyGovernanceOrBadgerGovernance");
-        _;
-    }
-
+    
     // ===== Pausing Functionality =====
     
-    function pause() external onlyGuardianOrGovernance {
-        _pause();
-    }
-
-    function unpause() external onlyGovernanceOrBadgerGovernance {
-        _unpause();
-    }
-
     /**
     * @notice Mint bBTC with Sett LP token
     * @dev Invoking pool.sett.safeTransferFrom() before core.mint(), will mess up core.totalSystemAssets() calculation
@@ -232,7 +214,5 @@ contract BadgerSettPeak is AccessControlDefended, PausableSlot, IBadgerSettPeak 
         numPools = _pools.length;
     }
 
-    function setGuardian(address _guardian) external onlyGovernanceOrBadgerGovernance {
-        guardian = _guardian;
-    }
+    
 }
